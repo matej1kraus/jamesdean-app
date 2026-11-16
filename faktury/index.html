@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html,body{margin:0;min-height:100%}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>James Dean Faktury</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: aplikační skořápka. Vlevo tmavý panel s navigací a počty, vpravo lišta s hledáním
+   a obsah. Na telefonu se panel mění na vodorovný pruh nahoře. */
+:root{
+  --bg:#f6f5f3;--surface:#ffffff;--surface2:#fbfaf9;--ink:#191617;--muted:#6b6265;--line:#e4e0dc;--soft:#f2efec;
+  --accent:#c8102e;--on-accent:#ffffff;--side:#17120f;--side-ink:#e9e3dd;--side-muted:#9b918a;
+  --ok:#1f7a4d;--warn:#8a5200;--bad:#b3122b;--ok-bg:#e6f3ec;--warn-bg:#fbf0dc;--bad-bg:#fbe4e8;--info-bg:#eceff2;
+  --body:'Instrument Sans',system-ui,sans-serif;
+  --r:8px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141011;--surface:#1d1819;--surface2:#211b1c;--ink:#f3eeea;--muted:#a79c99;--line:#332b2c;--soft:#261f20;
+  --accent:#ff5a68;--on-accent:#1a0508;--side:#0e0b0a;--side-ink:#e9e3dd;--side-muted:#8a807a;
+  --ok:#6fd1a0;--warn:#f0b955;--bad:#ff8a97;--ok-bg:#12281d;--warn-bg:#2e2210;--bad-bg:#3a1219;--info-bg:#232a2e;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141011;--surface:#1d1819;--surface2:#211b1c;--ink:#f3eeea;--muted:#a79c99;--line:#332b2c;--soft:#261f20;
+  --accent:#ff5a68;--on-accent:#1a0508;--side:#0e0b0a;--side-ink:#e9e3dd;--side-muted:#8a807a;
+  --ok:#6fd1a0;--warn:#f0b955;--bad:#ff8a97;--ok-bg:#12281d;--warn-bg:#2e2210;--bad-bg:#3a1219;--info-bg:#232a2e;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--body)}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+/* levý panel */
+.side{background:var(--side);color:var(--side-ink);padding:20px 12px calc(20px + env(safe-area-inset-bottom,0px));padding-left:max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:9px;padding:4px 10px 18px;font:600 15px var(--body);color:#fff}
+.brand i{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none}
+.side nav{display:flex;flex-direction:column;gap:2px}
+.side button{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:var(--r);background:none;color:var(--side-muted);font:500 14px var(--body);text-align:left;cursor:pointer}
+.side button:hover{background:rgba(255,255,255,.06);color:var(--side-ink)}
+.side button[aria-selected="true"]{background:rgba(255,255,255,.1);color:#fff}
+.side button .cnt{margin-left:auto;padding:1px 7px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600}
+.side button[aria-selected="true"] .cnt{background:var(--accent)}
+.side .sep{height:1px;background:rgba(255,255,255,.1);margin:12px 10px}
+.side a.home{color:var(--side-muted);font-size:13px;text-decoration:none;padding:8px 10px;margin-top:auto}
+.side a.home:hover{color:var(--side-ink)}
+/* lišta */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:12px max(16px,env(safe-area-inset-right,0px)) 12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:21;background:var(--surface)}
+.topbar h1{font:600 17px var(--body);margin:0;white-space:nowrap}
+.topbar .grow{flex:1 1 180px;min-width:0}
+.content{padding:20px max(16px,env(safe-area-inset-right,0px)) 56px 20px;max-width:1180px}
+@media(max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{flex-direction:row;align-items:center;gap:4px;overflow-x:auto;padding:8px;padding-top:calc(8px + env(safe-area-inset-top,0px))}
+  .side .brand{display:none}.side .sep{display:none}.side a.home{margin:0;white-space:nowrap}
+  .side nav{flex-direction:row}
+  .side button{min-height:36px;white-space:nowrap}
+  .topbar{top:0}body::before{display:none}
+  .content{padding-left:16px}
+}
+/* prvky */
+h2{font:600 16px var(--body);margin:0 0 10px}
+h3{font:600 14px var(--body);margin:20px 0 8px}
+.btn{min-height:38px;padding:0 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:var(--r);font:500 14px var(--body);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.main{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.sm{min-height:32px;padding:0 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,select,textarea{width:100%;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--ink);font:400 14px var(--body)}
+textarea{min-height:60px}
+label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:3px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px}
+.muted{color:var(--muted);font-size:13px}
+.note{color:var(--muted);font-size:13px;margin:8px 0 0}
+.err{color:var(--accent);font-size:13px;margin:8px 0 0;min-height:1px}
+/* kpi */
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:10px;margin-bottom:18px}
+.kpi div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.kpi b{display:block;font:600 21px/1.2 var(--body);font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi .bad b{color:var(--bad)}.kpi .warn b{color:var(--warn)}.kpi .ok b{color:var(--ok)}
+/* tabulka */
+.tw{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:780px}
+th{text-align:left;padding:9px 12px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.02em}
+td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:middle}
+tbody tr:hover td{background:var(--surface2)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td.c,th.c{width:34px;text-align:center}
+td input[type=checkbox],th input[type=checkbox]{width:16px;min-height:16px;height:16px;margin:0}
+/* štítky */
+.st{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st.nova{background:var(--warn-bg);color:var(--warn)}
+.st.zkontrolovana{background:var(--info-bg);color:var(--ink)}
+.st.schvalena{background:var(--ok-bg);color:var(--ok)}
+.st.zaplacena{background:var(--soft);color:var(--muted)}
+.st.sporna{background:var(--bad-bg);color:var(--bad)}
+.st.po{background:var(--bad-bg);color:var(--bad)}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;margin:0 4px 4px 0}
+.tag.miss{background:var(--bad-bg);color:var(--bad)}
+.tag.dup{background:var(--warn-bg);color:var(--warn)}
+.tag.test{background:var(--info-bg);color:var(--muted)}
+.tag.lim{background:var(--warn-bg);color:var(--warn)}
+/* fronta: dokument vlevo, pole vpravo */
+.split{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px}
+@media(max-width:760px){.split{grid-template-columns:1fr}}
+.doc{background:var(--soft);border:1px solid var(--line);border-radius:var(--r);min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;text-align:center}
+.doc img{max-width:100%;border-radius:4px}
+.doc .ico{font:600 12px var(--body);letter-spacing:.08em;color:var(--muted)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fld{min-width:0}
+.fld span{display:block;font-size:12px;color:var(--muted)}
+.fld b{display:block;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fld.gap b{color:var(--bad)}
+.qhead{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.qhead b{font-size:17px;overflow-wrap:anywhere}
+/* historie */
+ul.hist{list-style:none;margin:8px 0 0;padding:0;font-size:13px}
+ul.hist li{display:flex;gap:10px;padding:5px 0;border-top:1px solid var(--line);color:var(--muted)}
+ul.hist li:first-child{border-top:0}
+ul.hist time{font-variant-numeric:tabular-nums;white-space:nowrap}
+dl.kv{display:grid;grid-template-columns:minmax(120px,180px) 1fr;gap:0;margin:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+dl.kv dt,dl.kv dd{margin:0;padding:8px 11px;border-top:1px solid var(--line);min-width:0;overflow-wrap:anywhere;font-size:14px}
+dl.kv dt{background:var(--surface2);font-weight:500}
+dl.kv dt:first-of-type,dl.kv dt:first-of-type+dd{border-top:0}
+@media(max-width:560px){dl.kv{grid-template-columns:1fr}dl.kv dt{border-top:1px solid var(--line)}}
+code{font:500 12.5px ui-monospace,monospace;background:var(--soft);padding:1px 5px;border-radius:4px}
+#qr{background:#fff;padding:10px;border-radius:var(--r);display:inline-block;line-height:0}
+.pay{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start}
+@media(max-width:620px){.pay{grid-template-columns:1fr}}
+.empty{padding:40px 0;color:var(--muted);text-align:center}
+a.file{color:var(--accent);font-weight:600;font-size:13px}
+.kbd{display:inline-block;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;font:600 11px ui-monospace,monospace;background:var(--surface)}
+.banner{background:var(--warn-bg);color:var(--warn);border-radius:var(--r);padding:9px 12px;font-size:13px;font-weight:500;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.banner .btn{min-height:30px;font-size:12px;padding:0 9px}
+[hidden]{display:none!important}
+body.r-manazer .needs-gm,body.r-manazer .needs-owner,body.r-gm .needs-owner{display:none!important}
+.rolehint{font-size:12px;color:var(--muted);margin:6px 0 0}
+</style>
+<script src="../supabase-store.js"></script>
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="brand"><i></i>James Dean · Faktury</div>
+  <nav role="tablist" aria-label="Sekce">
+    <button role="tab" aria-selected="true" data-tab="prehled">Přehled</button>
+    <button role="tab" aria-selected="false" data-tab="kontrola">Ke kontrole<span class="cnt" id="c-kontrola" hidden></span></button>
+    <button role="tab" aria-selected="false" data-tab="schvaleni">Ke schválení<span class="cnt" id="c-schvaleni" hidden></span></button>
+    <button role="tab" aria-selected="false" data-tab="platba">K zaplacení<span class="cnt" id="c-platba" hidden></span></button>
+    <button role="tab" aria-selected="false" data-tab="vse">Všechny faktury</button>
+    <div class="sep"></div>
+    <button role="tab" aria-selected="false" data-tab="banka">Párování plateb</button>
+    <button role="tab" aria-selected="false" data-tab="dodavatele">Dodavatelé</button>
+    <button role="tab" aria-selected="false" data-tab="nastaveni">Nastavení</button>
+  </nav>
+  <a class="home" href="../">← Zpět do Srdce</a>
+</aside>
+
+<main>
+<div class="topbar">
+  <h1 id="ttl">Přehled</h1>
+  <div class="grow"><label for="q" class="sr" style="position:absolute;left:-9999px">Hledat</label>
+    <input id="q" type="search" placeholder="Hledat dodavatele, číslo nebo VS" autocomplete="off"></div>
+  <button class="btn" id="exp">Export CSV</button>
+  <button class="btn main" id="add">Nová faktura</button>
+</div>
+
+<div class="content">
+<div class="banner" id="testbanner" hidden></div>
+<p class="err" id="werr" role="alert"></p>
+
+<section id="prehled">
+  <div class="kpi" id="kpi"></div>
+  <div class="card">
+    <h2>Splatnost</h2>
+    <div class="tw"><table id="aging"></table></div>
+    <p class="note">Nezaplacené faktury rozdělené podle toho, jak dlouho jsou po splatnosti.</p>
+  </div>
+  <div class="card">
+    <h2>Dodavatelé podle objemu</h2>
+    <div class="tw"><table id="topsup"></table></div>
+  </div>
+</section>
+
+<section id="kontrola" hidden>
+  <p class="rolehint" id="rolehint"></p>
+  <p class="muted" style="margin:0 0 14px">Faktury ze sběrače i ručně zadané, které nikdo neověřil. Doplňte, co chybí, a potvrďte.
+    Klávesy: <span class="kbd">J</span> <span class="kbd">K</span> pohyb, <span class="kbd">A</span> zkontrolováno, <span class="kbd">E</span> upravit.</p>
+  <div class="bar" style="margin-bottom:12px">
+    <button class="btn" id="bulkOk" disabled>Zkontrolovat vybrané</button>
+    <span class="muted" id="bulkInfo"></span>
+  </div>
+  <div id="queue"></div>
+</section>
+
+<section id="schvaleni" hidden>
+  <p class="muted" style="margin:0 0 14px">Zkontrolované faktury čekající na schválení k platbě.
+    Faktury nad limit schvaluje majitel; limit nastavíte v Nastavení.</p>
+  <div class="bar" style="margin-bottom:12px">
+    <button class="btn needs-gm" id="bulkAppr" disabled>Schválit vybrané</button>
+    <span class="muted" id="apprInfo"></span>
+  </div>
+  <div id="apprlist"></div>
+</section>
+
+<section id="platba" hidden>
+  <div id="paylist"></div>
+  <div class="card" id="detail" hidden>
+    <h2>Příprava platby</h2>
+    <div class="pay">
+      <div>
+        <dl class="kv" id="paykv"></dl>
+        <p class="note">Aplikace platbu neprovádí. Připraví údaje a QR kód pro bankovní aplikaci. Platbu potvrzujete vy v bance.</p>
+        <div class="bar" style="margin-top:12px">
+          <button class="btn" id="copyAll">Kopírovat údaje</button>
+          <button class="btn main needs-gm" id="paid">Označit jako zaplacenou</button>
+          <button class="btn" id="edit">Upravit</button>
+        </div>
+      </div>
+      <div><div id="qr"></div><p class="muted" id="qrmsg" style="max-width:190px"></p></div>
+    </div>
+  </div>
+</section>
+
+<section id="vse" hidden>
+  <div class="bar" style="margin-bottom:12px" id="filters"></div>
+  <div id="list"></div>
+</section>
+
+<section id="banka" hidden>
+  <div class="card">
+    <h2 style="margin-top:0">Párování plateb z výpisu</h2>
+    <p class="muted">Vložte řádky z bankovního výpisu. Hledá se shoda variabilního symbolu a částky,
+      s tolerancí na haléře. Co se spáruje, označím jako zaplacené až po vašem potvrzení.</p>
+    <label for="stmt">Výpis: na každém řádku variabilní symbol a částka, oddělené středníkem, čárkou nebo tabulátorem</label>
+    <textarea id="stmt" style="min-height:120px;font-family:ui-monospace,monospace" placeholder="2026104512;124350,50&#10;99921;12500"></textarea>
+    <div class="bar" style="margin-top:10px">
+      <button class="btn main" id="matchBtn">Najít shody</button>
+      <label style="display:flex;align-items:center;gap:6px;margin:0;font-size:13px;color:var(--ink)">
+        <input type="checkbox" id="tol" checked style="width:16px;min-height:16px;height:16px"> haléřové vyrovnání do 2 Kč</label>
+    </div>
+    <div id="matchOut"></div>
+  </div>
+</section>
+
+<section id="dodavatele" hidden>
+  <div class="bar" style="margin-bottom:12px"><button class="btn main" id="addSup">Přidat dodavatele</button></div>
+  <div id="suplist"></div>
+  <div class="card" id="supform" hidden>
+    <h2 id="supTitle" style="margin-top:0">Nový dodavatel</h2>
+    <form id="sf" autocomplete="off">
+      <div class="grid">
+        <div><label for="sname">Název</label><input id="sname" required maxlength="120"></div>
+        <div><label for="sico">IČO</label><input id="sico" maxlength="12" inputmode="numeric"></div>
+        <div><label for="siban">IBAN</label><input id="siban" maxlength="40"></div>
+        <div><label for="scat">Kategorie</label><select id="scat"></select></div>
+        <div><label for="sdue">Obvyklá splatnost (dní)</label><input id="sdue" type="number" min="0" max="120" step="1"></div>
+      </div>
+      <div style="margin-top:12px"><label for="salias">Aliasy z e-mailu, oddělené čárkou</label><input id="salias" maxlength="300" placeholder="dios, fakturace@dios.cz"></div>
+      <div class="bar" style="margin-top:12px">
+        <button class="btn main" type="submit">Uložit</button>
+        <button class="btn" type="button" id="supCancel">Zrušit</button>
+        <button class="btn" type="button" id="supDel" hidden>Smazat</button>
+      </div>
+      <p class="err" id="supErr" role="alert"></p>
+    </form>
+  </div>
+</section>
+
+<section id="nastaveni" hidden>
+  <div class="card">
+    <h2 style="margin-top:0">Schvalování</h2>
+    <div class="grid">
+      <div><label for="limit">Limit, nad který schvaluje majitel (Kč)</label><input id="limit" type="number" min="0" step="1000"></div>
+    </div>
+    <div class="bar" style="margin-top:12px"><button class="btn main needs-owner" id="saveCfg">Uložit</button></div>
+    <p class="note">Faktura nad limit dostane štítek a čeká na schválení majitelem. Aplikace to zatím nevynutí,
+      protože stránka nerozlišuje role. Vynutí to až databáze s účty.</p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Sběr faktur z firemního e-mailu</h2>
+    <p><span class="st nova">Nepřipojeno</span> Sběrač běží mimo tuto stránku, v GitHub Actions. Stránka jen ukazuje, co nasbíral.</p>
+    <dl class="kv">
+      <dt>Server</dt><dd><code>email.active24.com</code></dd>
+      <dt>Příchozí pošta IMAP</dt><dd>port <code>993</code>, SSL/TLS</dd>
+      <dt>Odchozí pošta SMTP</dt><dd>port <code>465</code> SSL/TLS, nebo <code>587</code> STARTTLS</dd>
+      <dt>Uživatelské jméno</dt><dd>celá e-mailová adresa schránky</dd>
+      <dt>Heslo</dt><dd>patří jen do GitHub Secrets, nikdy sem ani do chatu</dd>
+    </dl>
+    <p class="note">Zdroj: nápověda Active24. Před zapojením ověřte v administraci schránky.</p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Tvar záznamu pro napojení</h2>
+    <p class="muted">Dohodnutý tvar faktury. Hlavní aplikace podniku se napojuje na tahle pole, nemění se bez domluvy.</p>
+    <div class="tw"><table id="apitab"></table></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Zkušební data</h2>
+    <p class="muted">Vymyšlené faktury na vyzkoušení. Nejsou to skutečné doklady, dodavatelé ani částky.</p>
+    <div class="bar"><button class="btn" id="seed">Načíst zkušební faktury</button><button class="btn" id="unseed">Smazat zkušební faktury</button></div>
+    <p class="err" id="seedErr" role="alert"></p>
+  </div>
+</section>
+
+<div class="card" id="form" hidden>
+  <h2 id="formTitle" style="margin-top:0">Nová faktura</h2>
+  <form id="f" autocomplete="off">
+    <div class="grid">
+      <div><label for="supplier">Dodavatel</label><input id="supplier" list="suppliers" required maxlength="120"><datalist id="suppliers"></datalist></div>
+      <div><label for="number">Číslo faktury</label><input id="number" maxlength="40"></div>
+      <div><label for="amount">Částka k úhradě</label><input id="amount" type="number" step="0.01" min="0" required></div>
+      <div><label for="currency">Měna</label><select id="currency"><option>CZK</option><option>EUR</option></select></div>
+      <div><label for="issued">Vystaveno</label><input id="issued" type="date"></div>
+      <div><label for="due">Splatnost</label><input id="due" type="date" required></div>
+      <div><label for="vs">Variabilní symbol</label><input id="vs" inputmode="numeric" maxlength="10"></div>
+      <div><label for="iban">IBAN dodavatele</label><input id="iban" maxlength="40" placeholder="CZ.."></div>
+      <div><label for="cat">Kategorie</label><select id="cat"></select></div>
+    </div>
+    <div style="margin-top:12px"><label for="note">Poznámka</label><textarea id="note" maxlength="500"></textarea></div>
+    <div id="histbox"></div>
+    <div class="bar" style="margin-top:12px">
+      <button class="btn main" type="submit">Uložit</button>
+      <button class="btn" type="button" id="cancel">Zrušit</button>
+      <button class="btn needs-owner" type="button" id="del" hidden>Smazat</button>
+      <button class="btn needs-owner" type="button" id="delYes" hidden>Opravdu smazat</button>
+    </div>
+    <p class="err" id="ferr" role="alert"></p>
+  </form>
+</div>
+</div>
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
+const CATS=['Suroviny a nápoje','Energie a nájem','Služby','Marketing','Nájemné a leasing','Ostatní'];
+const STATES={nova:'Ke kontrole',zkontrolovana:'Zkontrolovaná',schvalena:'Schválená',zaplacena:'Zaplacená',sporna:'Sporná'};
+const TITLES={prehled:'Přehled',kontrola:'Ke kontrole',schvaleni:'Ke schválení',platba:'K zaplacení',vse:'Všechny faktury',banka:'Párování plateb',dodavatele:'Dodavatelé',nastaveni:'Nastavení'};
+const fmt=(n,c)=>new Intl.NumberFormat('cs-CZ',{style:'currency',currency:c||'CZK',maximumFractionDigits:2}).format(Number(n)||0);
+const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const parse=s=>{if(!s)return null;const d=new Date(String(s)+'T00:00:00');return isNaN(d)?null:d};
+const fd=s=>{const d=parse(s);return d?d.toLocaleDateString('cs-CZ'):'–'};
+const daysTo=s=>{const d=parse(s);return d?Math.round((d-today())/864e5):null};
+const esc=s=>String(s==null?'':s);
+const iso=d=>d.toISOString().slice(0,10);
+const shift=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+
+let rows=[],sups=[],cfg={limit:50000},db=null,col=null,supcol=null,cfgdoc=null,me='',loaded=false;
+let tab='prehled',filter='all',query='',selId=null,editId=null,armed=false,cursor=0,picked=new Set();
+const stOf=r=>STATES[r.state]?r.state:'nova';
+const isOpen=r=>stOf(r)!=='zaplacena';
+const overdue=r=>{const d=daysTo(r.due);return isOpen(r)&&d!==null&&d<0};
+const overLimit=r=>Number(r.amount)>Number(cfg.limit||0)&&Number(cfg.limit||0)>0;
+
+for(const c of CATS){for(const sel of [$('#cat'),$('#scat')]){const o=el('option',null,c);o.value=c;sel.append(o)}}
+
+async function init(){
+  try{const u=await claude.use('user');if(u){const m=await u.me();me=(m&&m.name)||''}}catch(_){}
+  try{
+    db=await claude.use('db');if(!db)throw 0;
+    col=db.collection('invoices');supcol=db.collection('suppliers');cfgdoc=db.doc('config/faktury');
+    const t=setTimeout(()=>{loaded=true;render()},10000);
+    col.onSnapshot(s=>{clearTimeout(t);loaded=true;rows=s.docs.map(d=>({id:d.id,...d.data()}));render()},()=>{clearTimeout(t);loaded=true;render()});
+    supcol.onSnapshot(s=>{sups=s.docs.map(d=>({id:d.id,...d.data()}));render()},()=>{});
+    cfgdoc.onSnapshot(s=>{const v=s.data();if(v&&typeof v.limit==='number')cfg=v;render()},()=>{});
+  }catch(e){loaded=true;render()}
+}
+function err(m){$('#werr').textContent=m||''}
+async function save(c,id,data){
+  if(!c){err('Bez připojení k datům se nic neuloží.');return null}
+  try{await c.doc(id).set({...data,updated_at:new Date().toISOString()});err('');return id}
+  catch(e){err('Uložení se nepodařilo. Nejspíš k tomu nemáte oprávnění.');return null}
+}
+function logline(r,txt){
+  const h=Array.isArray(r.history)?r.history.slice(-40):[];
+  h.push({at:new Date().toISOString(),what:txt,who:me||'neznámý'});
+  return h;
+}
+async function setState(r,state,label){
+  const {id,...rest}=r;
+  const extra={state,history:logline(r,label||STATES[state])};
+  if(state==='zaplacena')extra.paid_at=new Date().toISOString();
+  return save(col,id,{...rest,...extra});
+}
+
+// ---- pomocné
+function missing(r){
+  const m=[];
+  if(!(Number(r.amount)>0))m.push('částka');
+  if(!r.due)m.push('splatnost');
+  if(!r.vs)m.push('variabilní symbol');
+  if(!r.iban)m.push('IBAN');
+  if(!r.number)m.push('číslo faktury');
+  return m;
+}
+function dupes(r){
+  return rows.filter(x=>x.id!==r.id&&(
+    (r.number&&x.number&&r.supplier&&x.supplier&&String(x.number).trim()===String(r.number).trim()&&x.supplier===r.supplier)||
+    (r.vs&&x.vs&&String(x.vs)===String(r.vs)&&Number(x.amount)===Number(r.amount)&&Number(r.amount)>0)));
+}
+function supFor(name){
+  const n=String(name||'').toLowerCase().trim();if(!n)return null;
+  return sups.find(s=>String(s.name||'').toLowerCase()===n)||
+         sups.find(s=>(s.aliases||[]).some(a=>String(a).toLowerCase().trim()===n))||
+         sups.find(s=>(s.aliases||[]).some(a=>a&&n.includes(String(a).toLowerCase().trim())));
+}
+const czk=l=>l.reduce((a,r)=>a+((r.currency||'CZK')==='CZK'?Number(r.amount)||0:0),0);
+function matchQuery(r){
+  if(!query)return true;const q=query.toLowerCase();
+  return ((r.supplier||'')+' '+(r.number||'')+' '+(r.vs||'')).toLowerCase().includes(q);
+}
+
+// ---- přehled
+function renderPrehled(){
+  const open=rows.filter(isOpen),over=open.filter(overdue);
+  const soon=open.filter(r=>{const d=daysTo(r.due);return d!==null&&d>=0&&d<=7});
+  const m=new Date().getMonth(),y=new Date().getFullYear();
+  const paid=rows.filter(r=>stOf(r)==='zaplacena'&&r.paid_at&&new Date(r.paid_at).getMonth()===m&&new Date(r.paid_at).getFullYear()===y);
+  const email=rows.filter(r=>r.source==='email');
+  const clean=email.filter(r=>!missing(r).length);
+  const done=rows.filter(r=>r.paid_at&&r.created_at);
+  const cyc=done.length?Math.round(done.reduce((a,r)=>a+Math.max(0,(new Date(r.paid_at)-new Date(r.created_at))/864e5),0)/done.length):null;
+  const K=$('#kpi');K.textContent='';
+  const add=(cls,lab,val)=>{const d=el('div',cls);d.append(el('span',null,lab),el('b',null,val));K.append(d)};
+  add('','K úhradě celkem',fmt(czk(open)));
+  add('bad','Po splatnosti ('+over.length+')',fmt(czk(over)));
+  add('warn','Splatné do 7 dnů ('+soon.length+')',fmt(czk(soon)));
+  add('ok','Zaplaceno tento měsíc',fmt(czk(paid)));
+  add('','Bez doplňování',email.length?Math.round(clean.length/email.length*100)+' %':'–');
+  add('','Průměrně do zaplacení',cyc===null?'–':cyc+' dní');
+  // splatnost
+  const B=[['Ještě není splatná',r=>{const d=daysTo(r.due);return d===null||d>=0}],
+           ['1 až 30 dní po',r=>{const d=daysTo(r.due);return d!==null&&d<0&&d>=-30}],
+           ['31 až 60 dní po',r=>{const d=daysTo(r.due);return d!==null&&d<-30&&d>=-60}],
+           ['Víc než 60 dní po',r=>{const d=daysTo(r.due);return d!==null&&d<-60}]];
+  const t=$('#aging');t.innerHTML='<thead><tr><th>Pásmo</th><th class="n">Faktur</th><th class="n">Částka</th></tr></thead>';
+  const tb=el('tbody');
+  for(const [lab,fn] of B){const l=open.filter(fn);const tr=el('tr');
+    tr.append(el('td',null,lab),el('td','n',String(l.length)),el('td','n',fmt(czk(l))));tb.append(tr)}
+  const tr=el('tr');tr.style.fontWeight='600';
+  tr.append(el('td',null,'Celkem'),el('td','n',String(open.length)),el('td','n',fmt(czk(open))));tb.append(tr);
+  t.append(tb);
+  // dodavatelé
+  const by={};for(const r of rows){const k=r.supplier||'Neznámý';by[k]=by[k]||{n:0,s:0,open:0};by[k].n++;by[k].s+=Number(r.amount)||0;if(isOpen(r))by[k].open+=Number(r.amount)||0}
+  const t2=$('#topsup');t2.innerHTML='<thead><tr><th>Dodavatel</th><th class="n">Faktur</th><th class="n">Celkem</th><th class="n">Nezaplaceno</th></tr></thead>';
+  const tb2=el('tbody');
+  const list=Object.entries(by).sort((a,b)=>b[1].s-a[1].s).slice(0,8);
+  if(!list.length){const e=el('tr');const td=el('td','muted','Zatím žádná faktura.');td.colSpan=4;e.append(td);tb2.append(e)}
+  for(const [k,v] of list){const r2=el('tr');
+    r2.append(el('td',null,k),el('td','n',String(v.n)),el('td','n',fmt(v.s)),el('td','n',v.open?fmt(v.open):'–'));tb2.append(r2)}
+  t2.append(tb2);
+}
+
+// ---- fronta ke kontrole
+function docPane(r){
+  const d=el('div','doc');
+  const url=typeof r.file_url==='string'&&/^https:\/\//.test(r.file_url)?r.file_url:'';
+  if(url&&/\.(png|jpe?g|webp|gif)$/i.test(url)){const img=el('img');img.src=url;img.alt='Příloha faktury';d.append(img)}
+  else{d.append(el('div','ico',url?'PDF':'BEZ PŘÍLOHY'));
+    d.append(el('p','muted',url?'Náhled PDF se tu zobrazit nedá, otevřete ho v nové záložce.':'Sběrač k této faktuře přílohu neuložil.'))}
+  if(url){const a=el('a','file','Otevřít přílohu');a.href=url;a.target='_blank';a.rel='noopener';d.append(a)}
+  return d;
+}
+function fieldsPane(r){
+  const f=el('div','fields'),miss=missing(r);
+  const add=(lab,val,gap)=>{const w=el('div','fld'+(gap?' gap':''));w.append(el('span',null,lab),el('b',null,val));f.append(w)};
+  add('Částka',Number(r.amount)>0?fmt(r.amount,r.currency):'chybí',!(Number(r.amount)>0));
+  add('Splatnost',r.due?fd(r.due):'chybí',!r.due);
+  add('Vystaveno',r.issued?fd(r.issued):'–');
+  add('Číslo faktury',esc(r.number)||'chybí',!r.number);
+  add('Variabilní symbol',esc(r.vs)||'chybí',!r.vs);
+  add('IBAN',esc(r.iban)||'chybí',!r.iban);
+  add('Kategorie',esc(r.category)||'–');
+  return f;
+}
+function renderQueue(){
+  const Q=$('#queue');Q.textContent='';
+  if(!loaded){Q.append(el('p','empty','Načítám…'));return}
+  const list=rows.filter(r=>stOf(r)==='nova'&&matchQuery(r)).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
+  if(cursor>=list.length)cursor=Math.max(0,list.length-1);
+  if(!list.length){Q.append(el('p','empty','Nic ke kontrole. Jakmile sběrač najde novou fakturu, objeví se tady.'));
+    $('#bulkOk').disabled=true;$('#bulkInfo').textContent='';return}
+  list.forEach((r,i)=>{
+    const c=el('div','card');
+    if(i===cursor)c.style.borderColor='var(--accent)';
+    const h=el('div','qhead');
+    const left=el('div');
+    const cb=el('input');cb.type='checkbox';cb.checked=picked.has(r.id);cb.style.cssText='width:16px;height:16px;min-height:16px;margin-right:8px;vertical-align:-2px';
+    cb.onchange=()=>{cb.checked?picked.add(r.id):picked.delete(r.id);updateBulk()};
+    left.append(cb,el('b',null,esc(r.supplier)||'Neznámý dodavatel'));
+    const right=el('div');right.append(el('span','st nova','Ke kontrole'));
+    if(r.source==='email')right.append(el('span','muted',' z e-mailu'));
+    h.append(left,right);c.append(h);
+    const tags=el('div');
+    if(r.test)tags.append(el('span','tag test','zkušební'));
+    for(const m of missing(r))tags.append(el('span','tag miss','chybí '+m));
+    const dup=dupes(r);
+    if(dup.length)tags.append(el('span','tag dup','možná duplicita'));
+    if(overLimit(r))tags.append(el('span','tag lim','nad limit, schvaluje majitel'));
+    if(tags.children.length)c.append(tags);
+    const sp=el('div','split');sp.append(docPane(r),fieldsPane(r));c.append(sp);
+    if(r.note)c.append(el('p','note',esc(r.note)));
+    const bar=el('div','bar');bar.style.marginTop='12px';
+    const ok=el('button','btn main','Zkontrolováno');ok.onclick=()=>approve(r);
+    const ed=el('button','btn','Doplnit údaje');ed.onclick=()=>openForm(r.id);
+    const spb=el('button','btn','Sporná');spb.onclick=()=>setState(r,'sporna','Označena jako sporná');
+    bar.append(ok,ed,spb);c.append(bar);
+    Q.append(c);
+  });
+  updateBulk();
+}
+function approve(r){
+  const m=missing(r);
+  if(m.includes('částka')||m.includes('splatnost')){openForm(r.id);$('#ferr').textContent='Doplňte částku a splatnost, pak uložte.';return}
+  setState(r,'zkontrolovana','Zkontrolována');
+}
+function updateBulk(){
+  const n=picked.size;
+  $('#bulkOk').disabled=!n;$('#bulkInfo').textContent=n?('vybráno '+n):'';
+}
+$('#bulkOk').onclick=async()=>{
+  const list=rows.filter(r=>picked.has(r.id)&&stOf(r)==='nova');
+  const bad=list.filter(r=>{const m=missing(r);return m.includes('částka')||m.includes('splatnost')});
+  if(bad.length){err('U '+bad.length+' faktur chybí částka nebo splatnost, ty projděte jednotlivě.')}
+  for(const r of list.filter(r=>!bad.includes(r)))await setState(r,'zkontrolovana','Zkontrolována hromadně');
+  picked.clear();updateBulk();
+};
+
+// ---- ke schválení
+function renderAppr(){
+  const L=$('#apprlist');L.textContent='';
+  const list=rows.filter(r=>stOf(r)==='zkontrolovana'&&matchQuery(r)).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
+  if(!list.length){L.append(el('p','empty','Nic ke schválení.'));$('#bulkAppr').disabled=true;$('#apprInfo').textContent='';return}
+  const tw=el('div','tw'),t=el('table');
+  t.innerHTML='<thead><tr><th class="c"></th><th>Dodavatel</th><th>Číslo</th><th>Splatnost</th><th class="n">Částka</th><th></th><th></th></tr></thead>';
+  const tb=el('tbody');
+  for(const r of list){
+    const tr=el('tr'),tdc=el('td','c'),cb=el('input');cb.type='checkbox';cb.checked=picked.has(r.id);
+    cb.onchange=()=>{cb.checked?picked.add(r.id):picked.delete(r.id);
+      $('#bulkAppr').disabled=!picked.size;$('#apprInfo').textContent=picked.size?('vybráno '+picked.size):''};
+    tdc.append(cb);tr.append(tdc);
+    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'),el('td',null,fd(r.due)),el('td','n',fmt(r.amount,r.currency)));
+    const tg=el('td');
+    if(r.test)tg.append(el('span','tag test','zkušební'));
+    if(overLimit(r))tg.append(el('span','tag lim','nad limit'));
+    tr.append(tg);
+    const ta=el('td'),b=el('button','btn sm needs-gm','Schválit');b.onclick=()=>setState(r,'schvalena','Schválena k platbě');ta.append(b);tr.append(ta);
+    tb.append(tr);
+  }
+  t.append(tb);tw.append(t);L.append(tw);
+  $('#bulkAppr').disabled=!picked.size;$('#apprInfo').textContent=picked.size?('vybráno '+picked.size):'';
+}
+$('#bulkAppr').onclick=async()=>{
+  for(const r of rows.filter(r=>picked.has(r.id)&&stOf(r)==='zkontrolovana'))await setState(r,'schvalena','Schválena hromadně');
+  picked.clear();render();
+};
+
+// ---- k zaplacení
+function renderPay(){
+  const L=$('#paylist');L.textContent='';
+  const list=rows.filter(r=>stOf(r)==='schvalena'&&matchQuery(r)).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
+  if(!list.length){L.append(el('p','empty','Žádná schválená faktura nečeká na platbu.'));return}
+  const tw=el('div','tw'),t=el('table');
+  t.innerHTML='<thead><tr><th>Dodavatel</th><th>Číslo</th><th>Splatnost</th><th class="n">Částka</th><th>Stav</th><th></th></tr></thead>';
+  const tb=el('tbody');
+  for(const r of list){
+    const tr=el('tr'),d=daysTo(r.due);
+    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'));
+    const td=el('td');td.append(document.createTextNode(fd(r.due)));
+    if(d!==null)td.append(el('span','muted',d<0?' ('+(-d)+' dní po)':d===0?' (dnes)':' (za '+d+' dní)'));
+    tr.append(td,el('td','n',fmt(r.amount,r.currency)));
+    const ts=el('td');ts.append(el('span','st '+(overdue(r)?'po':'schvalena'),overdue(r)?'Po splatnosti':'Schválená'));tr.append(ts);
+    const ta=el('td'),b=el('button','btn sm needs-gm','Platba');
+    b.onclick=()=>{selId=r.id;renderDetail();$('#detail').hidden=false;$('#detail').scrollIntoView({block:'start'})};
+    ta.append(b);tr.append(ta);tb.append(tr);
+  }
+  t.append(tb);tw.append(t);L.append(tw);
+}
+
+// ---- všechny
+function renderFilters(){
+  const F=$('#filters');F.textContent='';
+  const defs=[['all','Vše'],['nova','Ke kontrole'],['zkontrolovana','Zkontrolované'],['schvalena','Schválené'],['po','Po splatnosti'],['zaplacena','Zaplacené'],['sporna','Sporné']];
+  for(const [k,lab] of defs){
+    const n=k==='all'?rows.length:k==='po'?rows.filter(overdue).length:rows.filter(r=>stOf(r)===k).length;
+    const b=el('button','btn'+(filter===k?' main':''),lab+' ('+n+')');b.onclick=()=>{filter=k;render()};F.append(b);
+  }
+}
+function renderAll(){
+  renderFilters();
+  const L=$('#list');L.textContent='';
+  if(!rows.length){L.append(el('p','empty','Zatím žádná faktura. Zadejte ji ručně, načtěte zkušební data v Nastavení, nebo počkejte na sběrač.'));return}
+  let list=rows.slice().sort((a,b)=>String(b.due||'').localeCompare(String(a.due||'')));
+  if(filter==='po')list=list.filter(overdue);else if(filter!=='all')list=list.filter(r=>stOf(r)===filter);
+  list=list.filter(matchQuery);
+  if(!list.length){L.append(el('p','empty','Výběru neodpovídá žádná faktura.'));return}
+  const tw=el('div','tw'),t=el('table');
+  t.innerHTML='<thead><tr><th>Dodavatel</th><th>Číslo</th><th>Vystaveno</th><th>Splatnost</th><th class="n">Částka</th><th>Stav</th><th>Zdroj</th><th></th></tr></thead>';
+  const tb=el('tbody');
+  for(const r of list){
+    const tr=el('tr'),tds=el('td');
+    const nm=el('td');nm.append(document.createTextNode(esc(r.supplier)));
+    if(r.test)nm.append(el('span','tag test','zkušební'));
+    tr.append(nm,el('td',null,esc(r.number)||'–'),el('td',null,fd(r.issued)),el('td',null,fd(r.due)),el('td','n',fmt(r.amount,r.currency)));
+    tds.append(el('span','st '+(overdue(r)?'po':stOf(r)),overdue(r)?'Po splatnosti':STATES[stOf(r)]));tr.append(tds);
+    tr.append(el('td','muted',r.source==='email'?'e-mail':r.source==='api'?'API':'ručně'));
+    const ta=el('td'),b=el('button','btn sm','Detail');b.onclick=()=>openForm(r.id);ta.append(b);tr.append(ta);tb.append(tr);
+  }
+  t.append(tb);tw.append(t);L.append(tw);
+}
+
+// ---- dodavatelé
+let editSup=null;
+function renderSups(){
+  const L=$('#suplist');L.textContent='';
+  const dl=$('#suppliers');dl.textContent='';
+  for(const s of sups){const o=el('option');o.value=s.name;dl.append(o)}
+  if(!sups.length){L.append(el('p','empty','Zatím žádný dodavatel. Přidejte ty, od kterých chodí faktury pravidelně.'));return}
+  const tw=el('div','tw'),t=el('table');
+  t.innerHTML='<thead><tr><th>Název</th><th>IČO</th><th>IBAN</th><th>Kategorie</th><th>Splatnost</th><th>Aliasy</th><th class="n">Faktur</th><th></th></tr></thead>';
+  const tb=el('tbody');
+  for(const s of sups.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'cs'))){
+    const n=rows.filter(r=>r.supplier===s.name).length;
+    const tr=el('tr');
+    tr.append(el('td',null,esc(s.name)),el('td',null,esc(s.ico)||'–'),el('td',null,esc(s.iban)||'–'),
+      el('td',null,esc(s.category)||'–'),el('td',null,s.due_days?s.due_days+' dní':'–'),
+      el('td','muted',(s.aliases||[]).join(', ')||'–'),el('td','n',String(n)));
+    const ta=el('td'),b=el('button','btn sm','Upravit');b.onclick=()=>openSup(s.id);ta.append(b);tr.append(ta);tb.append(tr);
+  }
+  t.append(tb);tw.append(t);L.append(tw);
+}
+function openSup(id){
+  editSup=id||null;const s=sups.find(x=>x.id===id)||{};
+  $('#supTitle').textContent=id?'Upravit dodavatele':'Nový dodavatel';
+  $('#sname').value=s.name||'';$('#sico').value=s.ico||'';$('#siban').value=s.iban||'';
+  $('#scat').value=s.category||CATS[0];$('#sdue').value=s.due_days||'';$('#salias').value=(s.aliases||[]).join(', ');
+  $('#supDel').hidden=!id;$('#supErr').textContent='';
+  $('#supform').hidden=false;$('#supform').scrollIntoView({block:'start'});$('#sname').focus();
+}
+$('#addSup').onclick=()=>openSup();
+$('#supCancel').onclick=()=>{$('#supform').hidden=true};
+$('#supDel').onclick=async()=>{if(editSup&&supcol){try{await supcol.doc(editSup).delete();$('#supform').hidden=true}catch(e){$('#supErr').textContent='Smazání se nepovedlo.'}}};
+$('#sf').onsubmit=async e=>{
+  e.preventDefault();
+  const iban=$('#siban').value.replace(/\s+/g,'').toUpperCase();
+  if(iban&&!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)){$('#supErr').textContent='IBAN vypadá nesprávně.';return}
+  const data={name:$('#sname').value.trim(),ico:$('#sico').value.replace(/\D/g,''),iban,category:$('#scat').value,
+    due_days:parseInt($('#sdue').value,10)||0,aliases:$('#salias').value.split(',').map(x=>x.trim()).filter(Boolean)};
+  const id=editSup||('s'+Date.now().toString(36));
+  if(await save(supcol,id,data))$('#supform').hidden=true;
+};
+
+// ---- párování plateb
+$('#matchBtn').onclick=()=>{
+  const out=$('#matchOut');out.textContent='';
+  const tol=$('#tol').checked?2:0.009;
+  const lines=$('#stmt').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  const found=[],miss=[];
+  for(const ln of lines){
+    const parts=ln.split(/[;,\t|]/).map(s=>s.trim()).filter(Boolean);
+    let vs='',am=null;
+    for(const p of parts){
+      const digits=p.replace(/\s/g,'');
+      if(/^\d{3,10}$/.test(digits)&&!vs){vs=digits;continue}
+      const n=parseFloat(digits.replace(/\s/g,'').replace(/\.(?=\d{3}\b)/g,'').replace(',','.'));
+      if(!isNaN(n)&&am===null)am=n;
+    }
+    if(!vs&&am===null){miss.push([ln,'řádek se nepodařilo přečíst']);continue}
+    const hit=rows.find(r=>isOpen(r)&&r.vs&&String(r.vs)===vs&&(am===null||Math.abs(Number(r.amount)-am)<=tol));
+    if(hit)found.push([hit,am]);else miss.push([ln,vs?'k VS '+vs+' nesedí žádná nezaplacená faktura':'chybí variabilní symbol']);
+  }
+  if(!found.length&&!miss.length){out.append(el('p','muted','Vložte řádky z výpisu a zkuste to znovu.'));return}
+  if(found.length){
+    const h=el('h3',null,'Nalezené shody ('+found.length+')');out.append(h);
+    const tw=el('div','tw'),t=el('table');
+    t.innerHTML='<thead><tr><th>Dodavatel</th><th>VS</th><th class="n">Faktura</th><th class="n">Výpis</th><th>Stav</th></tr></thead>';
+    const tb=el('tbody');
+    for(const [r,am] of found){const tr=el('tr');
+      tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.vs)),el('td','n',fmt(r.amount,r.currency)),
+        el('td','n',am===null?'–':fmt(am)),el('td',null,STATES[stOf(r)]));tb.append(tr)}
+    t.append(tb);tw.append(t);out.append(tw);
+    const b=el('button','btn main','Označit těchto '+found.length+' jako zaplacené');
+    b.onclick=async()=>{b.disabled=true;for(const [r] of found)await setState(r,'zaplacena','Spárováno s výpisem');out.textContent='';$('#stmt').value='';render()};
+    const bb=el('div','bar');bb.style.marginTop='10px';bb.append(b);out.append(bb);
+  }
+  if(miss.length){
+    out.append(el('h3',null,'Nespárováno ('+miss.length+')'));
+    const ul=el('ul','hist');
+    for(const [ln,why] of miss){const li=el('li');li.append(el('code',null,ln.slice(0,60)),el('span',null,why));ul.append(li)}
+    out.append(ul);
+    out.append(el('p','note','Nejčastější důvod je chybějící variabilní symbol nebo jiná částka. Takovou platbu spárujte ručně v detailu faktury.'));
+  }
+};
+
+// ---- formulář
+function openForm(id){
+  editId=id||null;armed=false;const r=rows.find(x=>x.id===id)||{};
+  $('#formTitle').textContent=id?'Faktura':'Nová faktura';
+  const set=(k,v)=>$('#'+k).value=v==null?'':v;
+  set('supplier',r.supplier);set('number',r.number);set('amount',r.amount);set('issued',r.issued);
+  set('due',r.due);set('vs',r.vs);set('iban',r.iban);set('note',r.note);
+  $('#currency').value=r.currency||'CZK';$('#cat').value=r.category||CATS[0];
+  $('#del').hidden=!id;$('#delYes').hidden=true;$('#ferr').textContent='';
+  const H=$('#histbox');H.textContent='';
+  if(Array.isArray(r.history)&&r.history.length){
+    H.append(el('h3',null,'Historie'));
+    const ul=el('ul','hist');
+    for(const h of r.history.slice().reverse()){
+      const li=el('li'),t=el('time',null,new Date(h.at).toLocaleString('cs-CZ'));
+      li.append(t,el('span',null,h.what+(h.who&&h.who!=='neznámý'?' · '+h.who:'')));ul.append(li);
+    }
+    H.append(ul);
+  }
+  $('#form').hidden=false;$('#form').scrollIntoView({block:'start'});$('#supplier').focus();
+}
+$('#add').onclick=()=>openForm();
+$('#cancel').onclick=()=>{$('#form').hidden=true};
+$('#del').onclick=()=>{if(!armed){armed=true;$('#delYes').hidden=false}};
+$('#delYes').onclick=async()=>{
+  if(!editId||!col)return;
+  try{await col.doc(editId).delete();if(selId===editId){selId=null;$('#detail').hidden=true}$('#form').hidden=true}
+  catch(e){$('#ferr').textContent='Smazání se nepovedlo.'}
+};
+$('#supplier').addEventListener('change',()=>{
+  const s=supFor($('#supplier').value);if(!s)return;
+  if(!$('#iban').value&&s.iban)$('#iban').value=s.iban;
+  if(s.category)$('#cat').value=s.category;
+  if(!$('#due').value&&s.due_days){const d=new Date();d.setDate(d.getDate()+Number(s.due_days));$('#due').value=iso(d)}
+});
+$('#f').onsubmit=async e=>{
+  e.preventDefault();
+  const old=rows.find(x=>x.id===editId)||{};
+  const iban=$('#iban').value.replace(/\s+/g,'').toUpperCase();
+  if(iban&&!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(iban)){$('#ferr').textContent='IBAN vypadá nesprávně. Zkontrolujte ho podle faktury.';return}
+  const issued=$('#issued').value,due=$('#due').value;
+  if(issued&&due&&due<issued){$('#ferr').textContent='Splatnost je dřív než datum vystavení.';return}
+  const sup=$('#supplier').value.trim(),known=supFor(sup);
+  const data={supplier:known?known.name:sup,supplier_id:known?known.id:'',
+    number:$('#number').value.trim(),amount:parseFloat($('#amount').value)||0,currency:$('#currency').value,
+    issued,due,vs:$('#vs').value.replace(/\D/g,''),iban,category:$('#cat').value,note:$('#note').value.trim(),
+    file_url:old.file_url||'',source:old.source||'manual',source_ref:old.source_ref||'',
+    state:old.state||'nova',paid_at:old.paid_at||'',test:old.test||false,
+    history:editId?logline(old,'Upravena'):[{at:new Date().toISOString(),what:'Zadána ručně',who:me||'neznámý'}],
+    created_at:old.created_at||new Date().toISOString()};
+  const id=editId||('i'+Date.now().toString(36));
+  if(await save(col,id,data))$('#form').hidden=true;
+};
+
+// ---- platba
+function spayd(r){
+  if(!r.iban)return null;
+  const msg=String(r.supplier||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9 .,\-]/g,'').slice(0,50);
+  return 'SPD*1.0*ACC:'+r.iban+'*AM:'+(Number(r.amount)||0).toFixed(2)+'*CC:'+(r.currency||'CZK')
+    +(r.vs?'*X-VS:'+r.vs:'')+(msg?'*MSG:'+msg+(r.number?' '+r.number:''):'');
+}
+function payText(r){return `Příjemce: ${r.supplier}\nIBAN: ${r.iban||'(chybí)'}\nČástka: ${fmt(r.amount,r.currency)}\nVariabilní symbol: ${r.vs||'–'}\nSplatnost: ${fd(r.due)}\nFaktura: ${r.number||'–'}`}
+function renderDetail(){
+  const r=rows.find(x=>x.id===selId);
+  if(!r){$('#detail').hidden=true;return}
+  const K=$('#paykv');K.textContent='';
+  const kv=(k,v)=>{K.append(el('dt',null,k),el('dd',null,v))};
+  kv('Příjemce',esc(r.supplier));kv('IBAN',esc(r.iban)||'chybí, doplňte v úpravě');
+  kv('Částka',fmt(r.amount,r.currency));kv('Variabilní symbol',esc(r.vs)||'–');
+  kv('Splatnost',fd(r.due));kv('Stav',STATES[stOf(r)]);
+  const s=spayd(r),q=$('#qr');q.innerHTML='';
+  if(s&&window.QRCode){new QRCode(q,{text:s,width:170,height:170,correctLevel:QRCode.CorrectLevel.M});q.hidden=false;
+    $('#qrmsg').textContent='Naskenujte v bankovní aplikaci (česká QR platba).'}
+  else{q.hidden=true;$('#qrmsg').textContent=s?'QR kód se nepodařilo načíst, použijte kopírování údajů.':'QR kód se zobrazí po doplnění IBAN.'}
+  $('#paid').hidden=stOf(r)==='zaplacena';
+}
+$('#paid').onclick=()=>{const r=rows.find(x=>x.id===selId);if(r)setState(r,'zaplacena','Označena jako zaplacená')};
+$('#edit').onclick=()=>openForm(selId);
+$('#copyAll').onclick=async e=>{
+  const r=rows.find(x=>x.id===selId);if(!r)return;
+  const b=e.target,o=b.textContent;
+  try{await navigator.clipboard.writeText(payText(r));b.textContent='Zkopírováno'}
+  catch(_){b.textContent='Označte a zkopírujte';const ta=el('textarea');ta.value=payText(r);b.parentNode.after(ta);ta.select()}
+  setTimeout(()=>b.textContent=o,2000);
+};
+
+// ---- export
+$('#exp').onclick=()=>{
+  const cols=['supplier','number','vs','amount','currency','issued','due','iban','category','state','paid_at','source'];
+  const head=['Dodavatel','Číslo faktury','VS','Částka','Měna','Vystaveno','Splatnost','IBAN','Kategorie','Stav','Zaplaceno','Zdroj'];
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=[head.map(q).join(';')].concat(rows.map(r=>cols.map(c=>q(c==='state'?STATES[stOf(r)]:r[c])).join(';'))).join('\r\n');
+  const old=document.getElementById('csvout');if(old)old.remove();
+  const w=el('div','card');w.id='csvout';
+  w.append(el('h2',null,'Export pro účetní'),el('p','muted','Označte text a zkopírujte, nebo vložte do Excelu. Oddělovač je středník.'));
+  const ta=el('textarea');ta.value='﻿'+csv;ta.style.minHeight='170px';ta.readOnly=true;w.append(ta);
+  const b=el('button','btn','Zavřít');b.onclick=()=>w.remove();
+  const bb=el('div','bar');bb.style.marginTop='10px';bb.append(b);w.append(bb);
+  $('#'+tab).prepend(w);ta.select();
+};
+
+// ---- nastavení
+$('#saveCfg').onclick=async()=>{
+  const v={limit:parseInt($('#limit').value,10)||0};
+  if(!cfgdoc){err('Bez připojení k datům se nic neuloží.');return}
+  try{await cfgdoc.set(v);cfg=v;render()}catch(e){err('Uložení limitu se nepovedlo.')}
+};
+
+// ---- zkušební data
+const TEST=[
+ ['Velkoobchod nápojů Vltava','2026-11-0412','20261104',98450.00,-6,8,'CZ6508000000192000145399','Suroviny a nápoje','email',1,''],
+ ['Pekárna U Tří hvězd','PK-2026-882','2026882',6740.50,-12,-2,'CZ9203000000000123456789','Suroviny a nápoje','email',1,''],
+ ['Masna Novotný s.r.o.','FV250914','250914',23890.00,-9,5,'CZ1101000000001234567890','Suroviny a nápoje','email',1,''],
+ ['Pražská energetika','7788991234','7788991234',41200.00,-20,-6,'CZ5508000000001020304050','Energie a nájem','email',1,''],
+ ['Správa budov Kolkovna','NAJ-11-2026','1126',115000.00,-16,-1,'CZ3301000000009876543210','Nájemné a leasing','manual',1,''],
+ ['Prádelna Čistý list','PR-4471','4471',4320.00,-5,10,'','Služby',  'email',1,''],
+ ['Velkoobchod nápojů Vltava','2026-11-0418','20261104',12980.00,-2,13,'CZ6508000000192000145399','Suroviny a nápoje','email',0,'duplicitní variabilní symbol, zkontrolovat'],
+ ['Ovoce a zelenina Dvořák','OZ-9912','99912',8115.00,-3,11,'CZ6508000000111122223333','Suroviny a nápoje','email',0,''],
+ ['Servis chlazení Kolář','SCH-2026-77','202677',15600.00,-28,-14,'CZ4420100000002233445566','Služby','manual',0,''],
+ ['Tisk a grafika Linka','LN-3340','3340',5900.00,-7,7,'CZ6508000000445566778899','Marketing','email',0,''],
+ ['Odpady Praha a.s.','OD-11-2026','112026',3480.00,-24,-10,'CZ7303000000007788990011','Služby','email',0,''],
+ ['Velkoobchod nápojů Vltava','2026-10-0391','20261003',76210.00,-40,-26,'CZ6508000000192000145399','Suroviny a nápoje','email',0,'']];
+$('#seed').onclick=async()=>{
+  if(!col){$('#seedErr').textContent='Bez připojení k datům to nejde.';return}
+  const b=$('#seed');b.disabled=true;b.textContent='Načítám…';
+  const now=new Date().toISOString();
+  try{
+    for(let i=0;i<TEST.length;i++){
+      const [sup,num,vs,am,iss,due,iban,cat,src,gaps,note]=TEST[i];
+      const r={supplier:sup,supplier_id:'',number:gaps?'':num,vs:gaps?'':vs,amount:gaps&&i%3===0?0:am,currency:'CZK',
+        issued:shift(iss),due:gaps&&i%3===1?'':shift(due),iban:gaps?'':iban,category:gaps?'':cat,
+        note:note||'',file_url:'',source:src,source_ref:'test-'+i,
+        state:i<6?'nova':i<9?'zkontrolovana':i<11?'schvalena':'zaplacena',
+        paid_at:i>=11?now:'',test:true,
+        history:[{at:now,what:'Zkušební záznam',who:me||'neznámý'}],created_at:now};
+      await col.doc('test-'+i).set({...r,updated_at:now});
+    }
+    for(const [n,al,ib,c] of [['Velkoobchod nápojů Vltava','vltava,fakturace@vltava-napoje.cz','CZ6508000000192000145399','Suroviny a nápoje'],
+        ['Pražská energetika','pre,energetika','CZ5508000000001020304050','Energie a nájem']]){
+      await supcol.doc('test-sup-'+n.slice(0,6).replace(/\W/g,'')).set({name:n,ico:'',iban:ib,category:c,due_days:14,
+        aliases:al.split(','),test:true,updated_at:now});
+    }
+    $('#seedErr').textContent='';
+  }catch(e){$('#seedErr').textContent='Načtení se nepovedlo.'}
+  finally{b.disabled=false;b.textContent='Načíst zkušební faktury'}
+};
+$('#unseed').onclick=async()=>{
+  if(!col)return;
+  const b=$('#unseed');b.disabled=true;
+  try{
+    for(const r of rows.filter(r=>r.test))await col.doc(r.id).delete();
+    for(const s of sups.filter(s=>s.test))await supcol.doc(s.id).delete();
+  }catch(e){$('#seedErr').textContent='Mazání se nepovedlo.'}
+  finally{b.disabled=false}
+};
+
+// ---- tvar záznamu
+const API=[['supplier','text','Název dodavatele po sjednocení'],['supplier_id','text','Odkaz na dodavatele'],
+ ['number','text','Číslo faktury od dodavatele'],['vs','text','Variabilní symbol, jen číslice'],
+ ['amount','číslo','Částka k úhradě, s DPH'],['currency','text','CZK nebo EUR'],
+ ['issued','datum','Datum vystavení, RRRR-MM-DD'],['due','datum','Datum splatnosti, RRRR-MM-DD'],
+ ['iban','text','Účet dodavatele'],['category','text','Kategorie nákladu'],['note','text','Poznámka, u e-mailu předmět'],
+ ['file_url','odkaz','Příloha, PDF nebo obrázek'],['source','text','email, manual nebo api'],
+ ['source_ref','text','Message-ID zprávy, brání dvojímu zapsání'],
+ ['state','text','nova, zkontrolovana, schvalena, zaplacena, sporna'],
+ ['history','seznam','Kdo a kdy změnil stav'],['paid_at','čas','Kdy byla označena jako zaplacená'],
+ ['created_at','čas','Kdy vznikla'],['updated_at','čas','Poslední změna']];
+(function(){
+  const t=$('#apitab');t.innerHTML='<thead><tr><th>Pole</th><th>Typ</th><th>Co obsahuje</th></tr></thead>';
+  const tb=el('tbody');
+  for(const [k,ty,d] of API){const tr=el('tr'),td=el('td');td.append(el('code',null,k));tr.append(td,el('td','muted',ty),el('td',null,d));tb.append(tr)}
+  t.append(tb);
+})();
+
+// ---- klávesy
+document.addEventListener('keydown',e=>{
+  if(tab!=='kontrola')return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))return;
+  const list=rows.filter(r=>stOf(r)==='nova'&&matchQuery(r)).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
+  if(!list.length)return;
+  const k=e.key.toLowerCase();
+  if(k==='j'){cursor=Math.min(cursor+1,list.length-1);renderQueue()}
+  else if(k==='k'){cursor=Math.max(cursor-1,0);renderQueue()}
+  else if(k==='a'){e.preventDefault();approve(list[cursor])}
+  else if(k==='e'){e.preventDefault();openForm(list[cursor].id)}
+});
+
+// ---- navigace
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
+  tab=b.dataset.tab;picked.clear();
+  document.querySelectorAll('[data-tab]').forEach(x=>{x.setAttribute('aria-selected',String(x===b));document.getElementById(x.dataset.tab).hidden=x!==b});
+  $('#ttl').textContent=TITLES[tab]||'Faktury';
+  $('#q').hidden=['nastaveni','banka','dodavatele','prehled'].includes(tab);
+  $('#exp').hidden=['nastaveni','banka'].includes(tab);
+  try{history.replaceState(null,'','#'+tab)}catch(_){}
+  render();
+});
+$('#q').oninput=e=>{query=e.target.value.trim();render()};
+
+function applyRole(){
+  const r=(window.JD&&window.JD.role)||'';
+  document.body.classList.toggle('r-manazer',r==='manazer');
+  document.body.classList.toggle('r-gm',r==='gm');
+  const h=document.getElementById('rolehint');
+  if(h&&window.JD)h.textContent=r==='manazer'?'Jste přihlášen jako manažer. Faktury můžete kontrolovat. Schvalovat a platit je vedení.':'';
+}
+function render(){
+  applyRole();
+  const cnt=(id,n)=>{const e=$(id);e.textContent=n;e.hidden=!n};
+  cnt('#c-kontrola',rows.filter(r=>stOf(r)==='nova').length);
+  cnt('#c-schvaleni',rows.filter(r=>stOf(r)==='zkontrolovana').length);
+  cnt('#c-platba',rows.filter(r=>stOf(r)==='schvalena').length);
+  const tst=rows.filter(r=>r.test).length;
+  const B=$('#testbanner');B.hidden=!tst;
+  if(tst){const w=tst===1?'zkušební faktura':tst<5?'zkušební faktury':'zkušebních faktur';
+    B.textContent='';B.append(document.createTextNode('V datech '+(tst===1?'je':'jsou')+' '+tst+' '+w+'. Jsou vymyšlené, nejde o skutečné doklady.'));
+    const b=el('button','btn','Smazat je');b.onclick=()=>$('#unseed').click();B.append(b)}
+  $('#limit').value=cfg.limit||0;
+  if(tab==='prehled')renderPrehled();
+  else if(tab==='kontrola')renderQueue();
+  else if(tab==='schvaleni')renderAppr();
+  else if(tab==='platba'){renderPay();if(selId)renderDetail()}
+  else if(tab==='vse')renderAll();
+  else if(tab==='dodavatele')renderSups();
+  else renderSups();
+}
+const h=(location.hash||'').replace('#','');
+if(TITLES[h]&&h!=='prehled')document.querySelector('[data-tab="'+h+'"]').click();
+render();init();
+})();
+</script>
+</body>
+</html>
