@@ -84,6 +84,8 @@ button.b.sm{min-height:32px;font-size:13px;padding:0 10px}
 .sh em{display:block;font-style:normal;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .sh.free{border-style:dashed;border-left-color:var(--gap);background:var(--gap-bg);color:var(--gap)}
 .sh.draft{opacity:.62}
+.short{margin:2px 0 4px;padding:2px 6px;border-radius:4px;background:var(--gap-bg);color:var(--gap);
+  font:600 11px var(--f);text-align:center}
 .add{display:block;width:100%;border:1px dashed var(--line);border-radius:5px;background:none;color:var(--muted);
   cursor:pointer;font:500 18px/1 var(--f);padding:4px 0;min-height:26px}
 .add:hover{border-color:var(--accent);color:var(--accent)}
@@ -290,6 +292,12 @@ function grid(C){
           +(n?' ('+n+' noč.)':'')+(s.state==='navrh'?' · NÁVRH':'')));
         if(vedeni())b.onclick=()=>shiftForm(s);else b.disabled=true;
         td.append(b);
+      }
+      // pozice s předepsaným minimem obsazení (např. vždy dvě servírky)
+      if(p.min_staff>0&&here.length<p.min_staff){
+        const w=el('div','short',here.length+' z '+p.min_staff);
+        w.title='Na této směně mají být aspoň '+p.min_staff;
+        td.append(w);
       }
       if(vedeni()){const a=el('button','add','+');a.type='button';a.title='Přidat směnu';
         a.setAttribute('aria-label','Přidat směnu '+p.name+' '+ds);
