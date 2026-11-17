@@ -292,10 +292,9 @@ body.r-manazer .needs-gm,body.r-manazer .needs-owner,body.r-gm .needs-owner{disp
       <dt>Heslo</dt><dd>patří jen do GitHub Secrets, nikdy sem ani do chatu</dd>
     </dl>
     <p class="note">Zdroj: nápověda Active24. Před zapojením ověřte v administraci schránky.</p>
-    <p class="muted">Sběrač chodí do schránky sám <b>každých 30 minut</b> a bere jen zprávy
-      za <b>posledních 48 hodin</b>. Starší nechá být, ať při prvním spuštění neprojde celý archiv.</p>
-    <div class="bar"><button class="btn main" id="sber">Aktualizovat faktury</button></div>
-    <p class="muted" id="sberInfo" style="margin-bottom:0"></p>
+    <p class="muted" style="margin-bottom:0">Sběrač chodí do schránky sám <b>každých 30 minut</b>
+      a bere jen zprávy za <b>posledních 48 hodin</b>. Starší nechá být, ať při prvním spuštění
+      neprojde celý archiv. Nové faktury se objeví v <b>Ke kontrole</b>.</p>
   </div>
   <div class="card">
     <h2 style="margin-top:0">Tvar záznamu pro napojení</h2>
@@ -825,15 +824,6 @@ const TEST=[
  ['Tisk a grafika Linka','LN-3340','3340',5900.00,-7,7,'CZ6508000000445566778899','Marketing','email',0,''],
  ['Odpady Praha a.s.','OD-11-2026','112026',3480.00,-24,-10,'CZ7303000000007788990011','Služby','email',0,''],
  ['Velkoobchod nápojů Vltava','2026-10-0391','20261003',76210.00,-40,-26,'CZ6508000000192000145399','Suroviny a nápoje','email',0,'']];
-// Sběr z e-mailu. Stránka sama GitHub spustit nemůže — musel by v ní ležet
-// přístupový klíč a ten by si přečetl každý. Otevře se tedy stránka, kde se
-// sběr spustí jedním klikem pod tvým vlastním účtem.
-const SBER_URL='https://github.com/matej1kraus/jamesdean-sberac/actions/workflows/faktury.yml';
-$('#sber').onclick=()=>{
-  window.open(SBER_URL,'_blank','noopener');
-  $('#sberInfo').textContent='Otevřel jsem GitHub. Klikni tam na „Run workflow“. '
-    +'Za minutu dej tady F5 — nové faktury budou v Ke kontrole.';
-};
 $('#seed').onclick=async()=>{
   if(!col){$('#seedErr').textContent='Bez připojení k datům to nejde.';return}
   const b=$('#seed');b.disabled=true;b.textContent='Načítám…';
