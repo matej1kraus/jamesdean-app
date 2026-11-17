@@ -112,10 +112,6 @@ table.list td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:m
 .bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
 .note{background:var(--soft);border-radius:7px;padding:10px 12px;font-size:13px;color:var(--muted);margin-bottom:14px}
 .err{color:var(--accent);font-size:13.5px;margin-top:8px}
-.foot{position:fixed;right:0;bottom:0;display:flex;gap:10px;align-items:center;background:var(--surface);
-  border-top:1px solid var(--line);border-left:1px solid var(--line);border-radius:9px 0 0 0;
-  padding:7px 14px;padding-bottom:max(7px,env(safe-area-inset-bottom,0px));font-size:12.5px;color:var(--muted);z-index:20}
-.foot b{font-weight:600;color:var(--ink)}
 @media(max-width:900px){
   body{display:block}
   .side{width:auto;flex-direction:row;overflow-x:auto;padding:0;align-items:center}
@@ -150,7 +146,6 @@ table.list td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:m
   <div class="content" id="c"></div>
 </div>
 
-<div class="foot" id="foot" hidden></div>
 <div id="modal"></div>
 
 <script>
@@ -245,14 +240,8 @@ function render(){
 
   const C=$('#c');C.textContent='';
   if(!ready()){C.append(el('p','empty','Načítám…'));return}
+  // lištu s přihlášeným uživatelem vykresluje supabase-store.js, tady se neduplikuje
   ({rozpis:grid,tym:grid,neobsazene:gaps,zadosti:requests,hodiny:hours,lide:people,moje:mySh}[view]||grid)(C);
-
-  const F=$('#foot');
-  if(window.JD&&window.JD.email){
-    F.hidden=false;F.textContent='';
-    F.append(el('span',null,window.JD.email),el('b',null,window.JD.roleName||role));
-    const o=el('button','b sm','Odhlásit');o.onclick=()=>window.JD.logout();F.append(o);
-  }
 }
 
 /* rozpis: řádek na pozici, sloupec na den */
