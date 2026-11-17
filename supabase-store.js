@@ -10,8 +10,9 @@
   const LS    = 'jd.sb.session';
   const TABLE = {invoices:'invoices', suppliers:'suppliers', people:'people', shifts:'shifts',
                  prefs:'prefs', requests:'requests', decisions:'decisions', documents:'documents',
-                 contacts:'contacts', modules:'modules', analyses:'analyses'};
-  const ROLE_NAME = {majitel:'Majitel', gm:'Generální manažer', manazer:'Manažer'};
+                 contacts:'contacts', modules:'modules', analyses:'analyses',
+                 positions:'positions', staff:'staff', staff_private:'staff_private'};
+  const ROLE_NAME = {majitel:'Majitel', gm:'Generální manažer', manazer:'Manažer', zamestnanec:'Zaměstnanec'};
 
   const ls={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(_){return null}},
             set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}},
@@ -97,7 +98,8 @@
   // Aplikace posílá prázdné políčko jako prázdný text. Postgres ho do sloupce
   // s datem nepřijme a celý zápis odmítne, proto ho tady měníme na null.
   // Nový modul si sem dopíše svoje sloupce s datem.
-  const DATE_COLS = ['issued','due','paid_at','created_at','updated_at','date','datum'];
+  const DATE_COLS = ['issued','due','paid_at','created_at','updated_at','date','datum',
+                     'work_date','start_at','end_at','date_from','date_to','decided_at'];
   const forDb = v => { const o = {...v}; for (const k of DATE_COLS) if (o[k] === '') o[k] = null; return o };
 
   function docRef(table, id){
@@ -160,7 +162,8 @@
   };
   window.claude = {use: async n => !ses ? null : n==='db' ? db : n==='user' ? user : null};
   window.JD = {get role(){return role()}, get roleName(){return ROLE_NAME[role()]||'bez role'},
-               get email(){return email()}, logout, refresh: ()=>subs.forEach(pump)};
+               get email(){return email()}, get uid(){return (ses&&ses.user&&ses.user.id)||''},
+               logout, refresh: ()=>subs.forEach(pump)};
 
   // ---------- přihlašovací obrazovka ----------
   const css = document.createElement('style');
