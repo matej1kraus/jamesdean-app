@@ -464,11 +464,30 @@ function renderPrehled(){
 // ---- fronta ke kontrole
 function docPane(r){
   const d=el('div','doc');
-  const url=typeof r.file_url==='string'&&/^https:\/\//.test(r.file_url)?r.file_url:'';
-  if(url&&/\.(png|jpe?g|webp|gif)$/i.test(url)){const img=el('img');img.src=url;img.alt='Příloha faktury';d.append(img)}
-  else{d.append(el('div','ico',url?'PDF':'BEZ PŘÍLOHY'));
-    d.append(el('p','muted',url?'Náhled PDF se tu zobrazit nedá, otevřete ho v nové záložce.':'Sběrač k této faktuře přílohu neuložil.'))}
-  if(url){const a=el('a','file','Otevřít přílohu');a.href=url;a.target='_blank';a.rel='noopener';d.append(a)}
+  const cesta=typeof r.file_url==='string'?r.file_url.trim():'';
+  if(!cesta){
+    d.append(el('div','ico','BEZ PŘÍLOHY'),
+             el('p','muted','Sběrač k této faktuře přílohu neuložil.'));
+    return d;
+  }
+  const obrazek=/\.(png|jpe?g|webp|gif)$/i.test(cesta);
+  d.append(el('div','ico',obrazek?'OBRÁZEK':'PDF'));
+  const stav=el('p','muted','Příloha leží v úložišti. Otevře se v nové záložce.');
+  d.append(stav);
+  const b=el('button','file','Otevřít přílohu');b.type='button';
+  b.onclick=async()=>{
+    b.disabled=true;b.textContent='Připravuji odkaz…';
+    try{
+      // Prostor je neveřejný, odkaz se vyrábí na vyžádání a platí hodinu.
+      const url=await window.JD.odkazNaSoubor('faktury',cesta);
+      if(!url)throw new Error('odkaz se nevrátil');
+      window.open(url,'_blank','noopener');
+      stav.textContent='Odkaz platí hodinu. Potom klikni znovu.';
+    }catch(e){
+      stav.textContent='Přílohu se nepodařilo otevřít: '+(e&&e.message?e.message:'neznámá chyba');
+    }finally{ b.disabled=false;b.textContent='Otevřít přílohu' }
+  };
+  d.append(b);
   return d;
 }
 function fieldsPane(r){

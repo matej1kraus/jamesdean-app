@@ -161,9 +161,19 @@
     can(what){ return what==='data.write' ? role()!=='none' : null }
   };
   window.claude = {use: async n => !ses ? null : n==='db' ? db : n==='user' ? user : null};
+  // Přílohy leží v neveřejném prostoru, takže se k nim nedá dostat pouhou adresou.
+  // Tahle funkce si vyžádá dočasný odkaz, který za hodinu přestane platit.
+  async function odkazNaSoubor(bucket, cesta, vteriny){
+    if (!cesta) return '';
+    if (/^https?:\/\//i.test(cesta)) return cesta;        // starší záznamy s plnou adresou
+    const o = await api('/storage/v1/object/sign/' + bucket + '/' + encodeURI(cesta),
+                        {method:'POST', body: JSON.stringify({expiresIn: vteriny || 3600})});
+    return o && o.signedURL ? URL_ + '/storage/v1' + o.signedURL : '';
+  }
+
   window.JD = {get role(){return role()}, get roleName(){return ROLE_NAME[role()]||'bez role'},
                get email(){return email()}, get uid(){return (ses&&ses.user&&ses.user.id)||''},
-               logout, refresh: ()=>subs.forEach(pump)};
+               odkazNaSoubor, logout, refresh: ()=>subs.forEach(pump)};
 
   // ---------- přihlašovací obrazovka ----------
   const css = document.createElement('style');
