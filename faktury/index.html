@@ -364,9 +364,15 @@ const shift=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
 
 let rows=[],sups=[],cfg={limit:50000},db=null,col=null,supcol=null,cfgdoc=null,me='',loaded=false;
 let tab='prehled',filter='all',query='',selId=null,editId=null,armed=false,cursor=0,picked=new Set();
-// Řazení a výběr období v záložce Všechny faktury.
-// sortDir: -1 sestupně (nejvyšší a nejnovější nahoře), 1 vzestupně.
-let sortKey='due',sortDir=-1,dateField='due',dateFrom='',dateTo='';
+// Řazení a výběr období. Každá záložka má své vlastní nastavení, aby
+// období nastavené ve Všech fakturách neschovávalo položky ve frontě
+// Ke schválení — tam by si toho nikdo nevšiml a faktura by propadla.
+// smer: -1 sestupně (nejvyšší a nejnovější nahoře), 1 vzestupně.
+const RAZENI={
+  vse:      {klic:'due',smer:-1,pole:'due',od:'',do:''},
+  schvaleni:{klic:'due',smer:1, pole:'due',od:'',do:''},
+};
+const R=()=>RAZENI[tab]||RAZENI.vse;
 const stOf=r=>STATES[r.state]?r.state:'nova';
 const isOpen=r=>stOf(r)!=='zaplacena';
 const overdue=r=>{const d=daysTo(r.due);return isOpen(r)&&d!==null&&d<0};
@@ -568,17 +574,24 @@ $('#bulkOk').onclick=async()=>{
 // ---- ke schválení
 function renderAppr(){
   const L=$('#apprlist');L.textContent='';
-  const list=rows.filter(r=>stOf(r)==='zkontrolovana'&&matchQuery(r)).sort((a,b)=>String(a.due||'9999').localeCompare(String(b.due||'9999')));
-  if(!list.length){L.append(el('p','empty','Nic ke schválení.'));$('#bulkAppr').disabled=true;$('#apprInfo').textContent='';return}
+  const vsechny=rows.filter(r=>stOf(r)==='zkontrolovana');
+  L.append(obdobiRadek());
+  const list=vsechny.filter(matchQuery).filter(vObdobi).sort(porovnej);
+  if(!list.length){
+    L.append(el('p','empty',vsechny.length?'Výběru neodpovídá žádná faktura ke schválení.':'Nic ke schválení.'));
+    $('#bulkAppr').disabled=true;$('#apprInfo').textContent='';return}
   const tw=el('div','tw'),t=el('table');
-  t.innerHTML='<thead><tr><th class="c"></th><th>Dodavatel</th><th>Číslo</th><th>Splatnost</th><th class="n">Částka</th><th></th><th></th></tr></thead>';
+  t.append(zahlavi([[null,'','c'],['supplier','Dodavatel',''],['number','Číslo',''],
+                    ['issued','Vystaveno',''],['due','Splatnost',''],
+                    ['amount','Částka','n'],[null,'',''],[null,'','']]));
   const tb=el('tbody');
   for(const r of list){
     const tr=el('tr'),tdc=el('td','c'),cb=el('input');cb.type='checkbox';cb.checked=picked.has(r.id);
     cb.onchange=()=>{cb.checked?picked.add(r.id):picked.delete(r.id);
       $('#bulkAppr').disabled=!picked.size;$('#apprInfo').textContent=picked.size?('vybráno '+picked.size):''};
     tdc.append(cb);tr.append(tdc);
-    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'),el('td',null,fd(r.due)),castkaBunka(r));
+    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'),
+              el('td',null,fd(r.issued)),el('td',null,fd(r.due)),castkaBunka(r));
     const tg=el('td');
     if(r.test)tg.append(el('span','tag test','zkušební'));
     if(overLimit(r))tg.append(el('span','tag lim','nad limit'));
@@ -587,6 +600,7 @@ function renderAppr(){
     tb.append(tr);
   }
   t.append(tb);tw.append(t);L.append(tw);
+  L.append(razeniNote(list.length,vsechny.length));
   $('#bulkAppr').disabled=!picked.size;$('#apprInfo').textContent=picked.size?('vybráno '+picked.size):'';
 }
 $('#bulkAppr').onclick=async()=>{
@@ -621,34 +635,99 @@ function renderPay(){
 // Kdyby se řadila jako nula nebo jako rok 0, obsadila by při řazení
 // vzestupně celý první řádek a to, kvůli čemu se řadí, by nebylo vidět.
 function porovnej(a,b){
-  const ad=a[sortKey],bd=b[sortKey];
-  const prazdne=v=>v===null||v===undefined||v==='';
+  const {klic,smer}=R();
+  const ad=a[klic],bd=b[klic];
+  const prazdne=v=>v===null||v===undefined||v===''||(klic==='amount'&&!(Number(v)>0));
   if(prazdne(ad)&&prazdne(bd))return 0;
   if(prazdne(ad))return 1;
   if(prazdne(bd))return -1;
   let v;
-  if(sortKey==='amount')v=Number(ad)-Number(bd);
-  else if(sortKey==='issued'||sortKey==='due')v=String(ad).localeCompare(String(bd));
+  if(klic==='amount')v=Number(ad)-Number(bd);
+  else if(klic==='issued'||klic==='due')v=String(ad).localeCompare(String(bd));
   else v=String(ad).localeCompare(String(bd),'cs');
-  return v*sortDir;
+  return v*smer;
 }
 // Prázdné pole data znamená, že se z té strany neomezuje.
 function vObdobi(r){
-  if(!dateFrom&&!dateTo)return true;
-  const d=r[dateField];
+  const {pole,od,do:doo}=R();
+  if(!od&&!doo)return true;
+  const d=r[pole];
   if(!d)return false;                  // bez data nelze do období zařadit
   const den=String(d).slice(0,10);
-  if(dateFrom&&den<dateFrom)return false;
-  if(dateTo&&den>dateTo)return false;
+  if(od&&den<od)return false;
+  if(doo&&den>doo)return false;
   return true;
 }
 function razeniPopis(){
+  const {klic,smer}=R();
   const co={supplier:'dodavatele',number:'čísla',issued:'data vystavení',
-            due:'splatnosti',amount:'částky'}[sortKey]||'splatnosti';
-  if(sortKey==='amount')return 'Řazeno podle částky '+(sortDir<0?'od nejvyšší':'od nejnižší')+'.';
-  if(sortKey==='issued'||sortKey==='due')
-    return 'Řazeno podle '+co+' '+(sortDir<0?'od nejnovější':'od nejstarší')+'.';
-  return 'Řazeno podle '+co+(sortDir<0?' od Z do A':' od A do Z')+'.';
+            due:'splatnosti',amount:'částky'}[klic]||'splatnosti';
+  if(klic==='amount')return 'Řazeno podle částky '+(smer<0?'od nejvyšší':'od nejnižší')+'.';
+  if(klic==='issued'||klic==='due')
+    return 'Řazeno podle '+co+' '+(smer<0?'od nejnovější':'od nejstarší')+'.';
+  return 'Řazeno podle '+co+(smer<0?' od Z do A':' od A do Z')+'.';
+}
+
+// Klikací záhlaví tabulky. Dvojice [klíč, nadpis, třída]; klíč null
+// znamená sloupec, podle kterého se neřadí (zaškrtávátko, štítky, tlačítka).
+function zahlavi(sloupce){
+  const th_=el('thead'),hr=el('tr'),{klic:aktKlic,smer}=R();
+  for(const [klic,nadpis,tr_] of sloupce){
+    const th=el('th',tr_||null);
+    if(!klic){if(nadpis)th.textContent=nadpis;hr.append(th);continue}
+    const aktivni=aktKlic===klic;
+    th.setAttribute('aria-sort',aktivni?(smer<0?'descending':'ascending'):'none');
+    const b=el('button',null,nadpis+(aktivni?(smer<0?' ↓':' ↑'):''));
+    b.type='button';
+    b.style.cssText='all:unset;cursor:pointer;font:inherit;color:'+
+      (aktivni?'var(--ink)':'inherit')+';white-space:nowrap';
+    b.title='Seřadit podle '+nadpis.toLowerCase();
+    b.onclick=()=>{
+      const o=R();
+      // Nový sloupec začíná tím, co u něj dává smysl: data a částky
+      // od nejvyšších, text od A. Druhé kliknutí směr otočí.
+      if(o.klic===klic)o.smer=-o.smer;
+      else{o.klic=klic;o.smer=(klic==='amount'||klic==='issued'||klic==='due')?-1:1}
+      render();
+    };
+    th.append(b);hr.append(th);
+  }
+  th_.append(hr);return th_;
+}
+
+// Řádek s výběrem období. Vrací prvek, který si volající někam vloží.
+function obdobiRadek(){
+  const o=R(),w=el('div','bar');w.style.width='100%';w.style.marginTop='4px';
+  // Globální pravidlo dává všem polím šířku 100 %. Tady by se každé
+  // roztáhlo přes celou šířku a na telefonu by vzniklo vodorovné rolování.
+  const UZKE='width:auto;min-width:0;flex:0 1 auto';
+  const lab=el('label',null,'Období podle');
+  lab.style.cssText='margin:0;font-size:13px;color:var(--muted)';
+  lab.htmlFor='dfield-'+tab;
+  const sel=el('select');sel.id='dfield-'+tab;sel.style.cssText=UZKE;
+  for(const [v,t] of [['due','splatnosti'],['issued','data vystavení']]){
+    const op=el('option',null,t);op.value=v;if(o.pole===v)op.selected=true;sel.append(op);
+  }
+  sel.onchange=()=>{o.pole=sel.value;render()};
+  const od=el('input');od.type='date';od.id='dfrom-'+tab;od.value=o.od;od.style.cssText=UZKE;
+  od.setAttribute('aria-label','Období od');od.onchange=()=>{o.od=od.value;render()};
+  const doo=el('input');doo.type='date';doo.id='dto-'+tab;doo.value=o.do;doo.style.cssText=UZKE;
+  doo.setAttribute('aria-label','Období do');doo.onchange=()=>{o.do=doo.value;render()};
+  const t1=el('span',null,'od'),t2=el('span',null,'do');
+  t1.style.cssText=t2.style.cssText='font-size:13px;color:var(--muted)';
+  w.append(lab,sel,t1,od,t2,doo);
+  if(o.od||o.do){
+    const z=el('button','btn sm','Zrušit období');
+    z.onclick=()=>{o.od='';o.do='';render()};w.append(z);
+  }
+  return w;
+}
+
+// Věta pod tabulkou. Vysvětlí, co se zrovna děje, a kolik je vidět.
+function razeniNote(vidite,celkem){
+  return el('p','note',razeniPopis()+' Kliknutím na název sloupce změníte řazení, '+
+    'druhým kliknutím na týž sloupec otočíte směr. Faktury bez data nebo bez částky '+
+    'jsou vždy na konci. Zobrazeno '+vidite+' z '+celkem+'.');
 }
 function renderFilters(){
   const F=$('#filters');F.textContent='';
@@ -658,32 +737,7 @@ function renderFilters(){
     const b=el('button','btn'+(filter===k?' main':''),lab+' ('+n+')');b.onclick=()=>{filter=k;render()};F.append(b);
   }
 
-  // Výběr období. Vlastní řádek, aby se netlačil mezi stavy.
-  const o=el('div','bar');o.style.width='100%';o.style.marginTop='4px';
-  const popisek=el('label',null,'Období podle');
-  popisek.style.cssText='margin:0;font-size:13px;color:var(--muted)';
-  popisek.htmlFor='dfield';
-  const UZKE='width:auto;min-width:0;flex:0 1 auto';
-  const sel=el('select');sel.id='dfield';sel.style.cssText=UZKE;
-  for(const [v,t] of [['due','splatnosti'],['issued','data vystavení']]){
-    const op=el('option',null,t);op.value=v;if(dateField===v)op.selected=true;sel.append(op);
-  }
-  sel.onchange=()=>{dateField=sel.value;render()};
-  const od=el('input');od.type='date';od.id='dfrom';od.value=dateFrom;od.style.cssText=UZKE;
-  od.setAttribute('aria-label','Období od');
-  od.onchange=()=>{dateFrom=od.value;render()};
-  const doo=el('input');doo.type='date';doo.id='dto';doo.value=dateTo;doo.style.cssText=UZKE;
-  doo.setAttribute('aria-label','Období do');
-  doo.onchange=()=>{dateTo=doo.value;render()};
-  const sp1=el('span',null,'od');sp1.style.cssText='font-size:13px;color:var(--muted)';
-  const sp2=el('span',null,'do');sp2.style.cssText='font-size:13px;color:var(--muted)';
-  o.append(popisek,sel,sp1,od,sp2,doo);
-  if(dateFrom||dateTo){
-    const z=el('button','btn sm','Zrušit období');
-    z.onclick=()=>{dateFrom='';dateTo='';render()};
-    o.append(z);
-  }
-  F.append(o);
+  F.append(obdobiRadek());
 }
 function renderAll(){
   renderFilters();
@@ -695,31 +749,9 @@ function renderAll(){
   list.sort(porovnej);
   if(!list.length){L.append(el('p','empty','Výběru neodpovídá žádná faktura.'));return}
   const tw=el('div','tw'),t=el('table');
-  // Klikací záhlaví. Druhé kliknutí na týž sloupec otočí směr.
-  const hlavicka=el('thead'),hr=el('tr');
-  const SLOUPCE=[['supplier','Dodavatel',''],['number','Číslo',''],
-                 ['issued','Vystaveno',''],['due','Splatnost',''],
-                 ['amount','Částka','n'],[null,'Stav',''],[null,'Zdroj',''],[null,'','']];
-  for(const [klic,nadpis,tr_] of SLOUPCE){
-    const th=el('th',tr_||null);
-    if(!klic){if(nadpis)th.textContent=nadpis;hr.append(th);continue}
-    const aktivni=sortKey===klic;
-    th.setAttribute('aria-sort',aktivni?(sortDir<0?'descending':'ascending'):'none');
-    const b=el('button',null,nadpis+(aktivni?(sortDir<0?' ↓':' ↑'):''));
-    b.type='button';
-    b.style.cssText='all:unset;cursor:pointer;font:inherit;color:'+
-      (aktivni?'var(--ink)':'inherit')+';white-space:nowrap';
-    b.title='Seřadit podle '+nadpis.toLowerCase();
-    b.onclick=()=>{
-      // Nový sloupec začíná tím, co u něj dává smysl: data a částky
-      // od nejvyšších, text od A. Druhé kliknutí směr otočí.
-      if(sortKey===klic)sortDir=-sortDir;
-      else{sortKey=klic;sortDir=(klic==='amount'||klic==='issued'||klic==='due')?-1:1}
-      render();
-    };
-    th.append(b);hr.append(th);
-  }
-  hlavicka.append(hr);t.append(hlavicka);
+  t.append(zahlavi([['supplier','Dodavatel',''],['number','Číslo',''],
+                    ['issued','Vystaveno',''],['due','Splatnost',''],
+                    ['amount','Částka','n'],[null,'Stav',''],[null,'Zdroj',''],[null,'','']]));
   const tb=el('tbody');
   for(const r of list){
     const tr=el('tr'),tds=el('td');
@@ -731,10 +763,7 @@ function renderAll(){
     const ta=el('td'),b=el('button','btn sm','Detail');b.onclick=()=>openForm(r.id);ta.append(b);tr.append(ta);tb.append(tr);
   }
   t.append(tb);tw.append(t);L.append(tw);
-  const n=el('p','note',razeniPopis()+' Kliknutím na název sloupce změníte řazení, '+
-    'druhým kliknutím na týž sloupec otočíte směr. Faktury bez data nebo bez částky '+
-    'jsou vždy na konci. Zobrazeno '+list.length+' z '+rows.length+'.');
-  L.append(n);
+  L.append(razeniNote(list.length,rows.length));
 }
 
 // ---- dodavatelé
