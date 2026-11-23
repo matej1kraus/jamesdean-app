@@ -347,6 +347,13 @@ const CATS=['Suroviny a nápoje','Energie a nájem','Služby','Marketing','Náje
 const STATES={nova:'Ke kontrole',zkontrolovana:'Zkontrolovaná',schvalena:'Schválená',zaplacena:'Zaplacená',sporna:'Sporná'};
 const TITLES={prehled:'Přehled',kontrola:'Ke kontrole',schvaleni:'Ke schválení',platba:'K zaplacení',vse:'Všechny faktury',banka:'Párování plateb',dodavatele:'Dodavatelé',nastaveni:'Nastavení'};
 const fmt=(n,c)=>new Intl.NumberFormat('cs-CZ',{style:'currency',currency:c||'CZK',maximumFractionDigits:2}).format(Number(n)||0);
+// Buňka s částkou. Když částka chybí, napíše "chybí", ne "0,00 Kč" —
+// nula vypadá jako údaj, a podle údaje se platí. Detail faktury to tak
+// píše odjakživa, tabulky to měly jinak.
+const castkaBunka=r=>{
+  if(Number(r.amount)>0)return el('td','n',fmt(r.amount,r.currency));
+  const td=el('td','n muted','chybí');td.title='Částku se nepodařilo vyčíst z faktury. Doplňte ji podle přílohy.';return td;
+};
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
 const parse=s=>{if(!s)return null;const d=new Date(String(s)+'T00:00:00');return isNaN(d)?null:d};
 const fd=s=>{const d=parse(s);return d?d.toLocaleDateString('cs-CZ'):'–'};
@@ -357,6 +364,9 @@ const shift=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
 
 let rows=[],sups=[],cfg={limit:50000},db=null,col=null,supcol=null,cfgdoc=null,me='',loaded=false;
 let tab='prehled',filter='all',query='',selId=null,editId=null,armed=false,cursor=0,picked=new Set();
+// Řazení a výběr období v záložce Všechny faktury.
+// sortDir: -1 sestupně (nejvyšší a nejnovější nahoře), 1 vzestupně.
+let sortKey='due',sortDir=-1,dateField='due',dateFrom='',dateTo='';
 const stOf=r=>STATES[r.state]?r.state:'nova';
 const isOpen=r=>stOf(r)!=='zaplacena';
 const overdue=r=>{const d=daysTo(r.due);return isOpen(r)&&d!==null&&d<0};
@@ -568,7 +578,7 @@ function renderAppr(){
     cb.onchange=()=>{cb.checked?picked.add(r.id):picked.delete(r.id);
       $('#bulkAppr').disabled=!picked.size;$('#apprInfo').textContent=picked.size?('vybráno '+picked.size):''};
     tdc.append(cb);tr.append(tdc);
-    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'),el('td',null,fd(r.due)),el('td','n',fmt(r.amount,r.currency)));
+    tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'),el('td',null,fd(r.due)),castkaBunka(r));
     const tg=el('td');
     if(r.test)tg.append(el('span','tag test','zkušební'));
     if(overLimit(r))tg.append(el('span','tag lim','nad limit'));
@@ -597,7 +607,7 @@ function renderPay(){
     tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.number)||'–'));
     const td=el('td');td.append(document.createTextNode(fd(r.due)));
     if(d!==null)td.append(el('span','muted',d<0?' ('+(-d)+' dní po)':d===0?' (dnes)':' (za '+d+' dní)'));
-    tr.append(td,el('td','n',fmt(r.amount,r.currency)));
+    tr.append(td,castkaBunka(r));
     const ts=el('td');ts.append(el('span','st '+(overdue(r)?'po':'schvalena'),overdue(r)?'Po splatnosti':'Schválená'));tr.append(ts);
     const ta=el('td'),b=el('button','btn sm needs-gm','Platba');
     b.onclick=()=>{selId=r.id;renderDetail();$('#detail').hidden=false;$('#detail').scrollIntoView({block:'start'})};
@@ -607,6 +617,39 @@ function renderPay(){
 }
 
 // ---- všechny
+// Faktura bez data nebo bez částky patří na konec seznamu v obou směrech.
+// Kdyby se řadila jako nula nebo jako rok 0, obsadila by při řazení
+// vzestupně celý první řádek a to, kvůli čemu se řadí, by nebylo vidět.
+function porovnej(a,b){
+  const ad=a[sortKey],bd=b[sortKey];
+  const prazdne=v=>v===null||v===undefined||v==='';
+  if(prazdne(ad)&&prazdne(bd))return 0;
+  if(prazdne(ad))return 1;
+  if(prazdne(bd))return -1;
+  let v;
+  if(sortKey==='amount')v=Number(ad)-Number(bd);
+  else if(sortKey==='issued'||sortKey==='due')v=String(ad).localeCompare(String(bd));
+  else v=String(ad).localeCompare(String(bd),'cs');
+  return v*sortDir;
+}
+// Prázdné pole data znamená, že se z té strany neomezuje.
+function vObdobi(r){
+  if(!dateFrom&&!dateTo)return true;
+  const d=r[dateField];
+  if(!d)return false;                  // bez data nelze do období zařadit
+  const den=String(d).slice(0,10);
+  if(dateFrom&&den<dateFrom)return false;
+  if(dateTo&&den>dateTo)return false;
+  return true;
+}
+function razeniPopis(){
+  const co={supplier:'dodavatele',number:'čísla',issued:'data vystavení',
+            due:'splatnosti',amount:'částky'}[sortKey]||'splatnosti';
+  if(sortKey==='amount')return 'Řazeno podle částky '+(sortDir<0?'od nejvyšší':'od nejnižší')+'.';
+  if(sortKey==='issued'||sortKey==='due')
+    return 'Řazeno podle '+co+' '+(sortDir<0?'od nejnovější':'od nejstarší')+'.';
+  return 'Řazeno podle '+co+(sortDir<0?' od Z do A':' od A do Z')+'.';
+}
 function renderFilters(){
   const F=$('#filters');F.textContent='';
   const defs=[['all','Vše'],['nova','Ke kontrole'],['zkontrolovana','Zkontrolované'],['schvalena','Schválené'],['po','Po splatnosti'],['zaplacena','Zaplacené'],['sporna','Sporné']];
@@ -614,28 +657,84 @@ function renderFilters(){
     const n=k==='all'?rows.length:k==='po'?rows.filter(overdue).length:rows.filter(r=>stOf(r)===k).length;
     const b=el('button','btn'+(filter===k?' main':''),lab+' ('+n+')');b.onclick=()=>{filter=k;render()};F.append(b);
   }
+
+  // Výběr období. Vlastní řádek, aby se netlačil mezi stavy.
+  const o=el('div','bar');o.style.width='100%';o.style.marginTop='4px';
+  const popisek=el('label',null,'Období podle');
+  popisek.style.cssText='margin:0;font-size:13px;color:var(--muted)';
+  popisek.htmlFor='dfield';
+  const UZKE='width:auto;min-width:0;flex:0 1 auto';
+  const sel=el('select');sel.id='dfield';sel.style.cssText=UZKE;
+  for(const [v,t] of [['due','splatnosti'],['issued','data vystavení']]){
+    const op=el('option',null,t);op.value=v;if(dateField===v)op.selected=true;sel.append(op);
+  }
+  sel.onchange=()=>{dateField=sel.value;render()};
+  const od=el('input');od.type='date';od.id='dfrom';od.value=dateFrom;od.style.cssText=UZKE;
+  od.setAttribute('aria-label','Období od');
+  od.onchange=()=>{dateFrom=od.value;render()};
+  const doo=el('input');doo.type='date';doo.id='dto';doo.value=dateTo;doo.style.cssText=UZKE;
+  doo.setAttribute('aria-label','Období do');
+  doo.onchange=()=>{dateTo=doo.value;render()};
+  const sp1=el('span',null,'od');sp1.style.cssText='font-size:13px;color:var(--muted)';
+  const sp2=el('span',null,'do');sp2.style.cssText='font-size:13px;color:var(--muted)';
+  o.append(popisek,sel,sp1,od,sp2,doo);
+  if(dateFrom||dateTo){
+    const z=el('button','btn sm','Zrušit období');
+    z.onclick=()=>{dateFrom='';dateTo='';render()};
+    o.append(z);
+  }
+  F.append(o);
 }
 function renderAll(){
   renderFilters();
   const L=$('#list');L.textContent='';
   if(!rows.length){L.append(el('p','empty','Zatím žádná faktura. Zadejte ji ručně, načtěte zkušební data v Nastavení, nebo počkejte na sběrač.'));return}
-  let list=rows.slice().sort((a,b)=>String(b.due||'').localeCompare(String(a.due||'')));
+  let list=rows.slice();
   if(filter==='po')list=list.filter(overdue);else if(filter!=='all')list=list.filter(r=>stOf(r)===filter);
-  list=list.filter(matchQuery);
+  list=list.filter(matchQuery).filter(vObdobi);
+  list.sort(porovnej);
   if(!list.length){L.append(el('p','empty','Výběru neodpovídá žádná faktura.'));return}
   const tw=el('div','tw'),t=el('table');
-  t.innerHTML='<thead><tr><th>Dodavatel</th><th>Číslo</th><th>Vystaveno</th><th>Splatnost</th><th class="n">Částka</th><th>Stav</th><th>Zdroj</th><th></th></tr></thead>';
+  // Klikací záhlaví. Druhé kliknutí na týž sloupec otočí směr.
+  const hlavicka=el('thead'),hr=el('tr');
+  const SLOUPCE=[['supplier','Dodavatel',''],['number','Číslo',''],
+                 ['issued','Vystaveno',''],['due','Splatnost',''],
+                 ['amount','Částka','n'],[null,'Stav',''],[null,'Zdroj',''],[null,'','']];
+  for(const [klic,nadpis,tr_] of SLOUPCE){
+    const th=el('th',tr_||null);
+    if(!klic){if(nadpis)th.textContent=nadpis;hr.append(th);continue}
+    const aktivni=sortKey===klic;
+    th.setAttribute('aria-sort',aktivni?(sortDir<0?'descending':'ascending'):'none');
+    const b=el('button',null,nadpis+(aktivni?(sortDir<0?' ↓':' ↑'):''));
+    b.type='button';
+    b.style.cssText='all:unset;cursor:pointer;font:inherit;color:'+
+      (aktivni?'var(--ink)':'inherit')+';white-space:nowrap';
+    b.title='Seřadit podle '+nadpis.toLowerCase();
+    b.onclick=()=>{
+      // Nový sloupec začíná tím, co u něj dává smysl: data a částky
+      // od nejvyšších, text od A. Druhé kliknutí směr otočí.
+      if(sortKey===klic)sortDir=-sortDir;
+      else{sortKey=klic;sortDir=(klic==='amount'||klic==='issued'||klic==='due')?-1:1}
+      render();
+    };
+    th.append(b);hr.append(th);
+  }
+  hlavicka.append(hr);t.append(hlavicka);
   const tb=el('tbody');
   for(const r of list){
     const tr=el('tr'),tds=el('td');
     const nm=el('td');nm.append(document.createTextNode(esc(r.supplier)));
     if(r.test)nm.append(el('span','tag test','zkušební'));
-    tr.append(nm,el('td',null,esc(r.number)||'–'),el('td',null,fd(r.issued)),el('td',null,fd(r.due)),el('td','n',fmt(r.amount,r.currency)));
+    tr.append(nm,el('td',null,esc(r.number)||'–'),el('td',null,fd(r.issued)),el('td',null,fd(r.due)),castkaBunka(r));
     tds.append(el('span','st '+(overdue(r)?'po':stOf(r)),overdue(r)?'Po splatnosti':STATES[stOf(r)]));tr.append(tds);
     tr.append(el('td','muted',r.source==='email'?'e-mail':r.source==='api'?'API':'ručně'));
     const ta=el('td'),b=el('button','btn sm','Detail');b.onclick=()=>openForm(r.id);ta.append(b);tr.append(ta);tb.append(tr);
   }
   t.append(tb);tw.append(t);L.append(tw);
+  const n=el('p','note',razeniPopis()+' Kliknutím na název sloupce změníte řazení, '+
+    'druhým kliknutím na týž sloupec otočíte směr. Faktury bez data nebo bez částky '+
+    'jsou vždy na konci. Zobrazeno '+list.length+' z '+rows.length+'.');
+  L.append(n);
 }
 
 // ---- dodavatelé
@@ -705,7 +804,7 @@ $('#matchBtn').onclick=()=>{
     t.innerHTML='<thead><tr><th>Dodavatel</th><th>VS</th><th class="n">Faktura</th><th class="n">Výpis</th><th>Stav</th></tr></thead>';
     const tb=el('tbody');
     for(const [r,am] of found){const tr=el('tr');
-      tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.vs)),el('td','n',fmt(r.amount,r.currency)),
+      tr.append(el('td',null,esc(r.supplier)),el('td',null,esc(r.vs)),castkaBunka(r),
         el('td','n',am===null?'–':fmt(am)),el('td',null,STATES[stOf(r)]));tb.append(tr)}
     t.append(tb);tw.append(t);out.append(tw);
     const b=el('button','btn main','Označit těchto '+found.length+' jako zaplacené');
