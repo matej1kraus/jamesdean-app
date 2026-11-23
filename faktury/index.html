@@ -228,6 +228,11 @@ body.r-manazer .needs-gm,body.r-manazer .needs-owner,body.r-gm .needs-owner{disp
 
 <section id="vse" hidden>
   <div class="bar" style="margin-bottom:12px" id="filters"></div>
+  <div class="bar" style="margin-bottom:12px">
+    <button class="btn needs-owner" id="bulkDel" disabled>Smazat vybrané</button>
+    <button class="btn" id="bulkNone" hidden>Zrušit výběr</button>
+    <span class="muted" id="bulkInfo"></span>
+  </div>
   <div id="list"></div>
 </section>
 
@@ -630,6 +635,52 @@ function renderPay(){
   t.append(tb);tw.append(t);L.append(tw);
 }
 
+// ---- hromadné mazání ve Všech fakturách
+// Potvrzení na dvě kliknutí, stejně jako u mazání jedné faktury v detailu.
+// Zbraň se odjistí při každé změně výběru i při přepnutí záložky, aby
+// druhé kliknutí nikdy nedopadlo na jiný výběr, než jaký měl člověk před očima.
+let bulkArmed=false;
+// Co je zrovna v tabulce vidět. Potřebuje to zaškrtávátko v záhlaví,
+// aby po odznačení jednoho řádku přestalo tvrdit, že je vybráno všechno.
+let videne=[];
+function updateBulkDel(){
+  const b=$('#bulkDel'),n=picked.size;
+  if(!b)return;
+  const sa=$('#selAll');
+  if(sa){
+    sa.checked=videne.length>0&&videne.every(id=>picked.has(id));
+    sa.indeterminate=!sa.checked&&videne.some(id=>picked.has(id));
+  }
+  b.disabled=!n;
+  b.textContent=bulkArmed?('Opravdu smazat '+n+' '+sklonujF(n)+'?'):('Smazat vybrané ('+n+')');
+  b.classList.toggle('main',bulkArmed);
+  $('#bulkNone').hidden=!n;
+  $('#bulkInfo').textContent=bulkArmed
+    ? 'Smazání se nedá vrátit. Doklady zůstávají v e-mailu a u účetní.'
+    : (n?('vybráno '+n):'');
+}
+const sklonujF=n=>n===1?'fakturu':(n>=2&&n<=4?'faktury':'faktur');
+function odjisti(){if(bulkArmed){bulkArmed=false;updateBulkDel()}}
+$('#bulkNone').onclick=()=>{picked.clear();bulkArmed=false;render()};
+$('#bulkDel').onclick=async()=>{
+  if(!picked.size)return;
+  if(!bulkArmed){bulkArmed=true;updateBulkDel();return}
+  if(!col){$('#bulkInfo').textContent='Bez připojení k datům to nejde.';return}
+  const ids=[...picked],b=$('#bulkDel');
+  b.disabled=true;bulkArmed=false;
+  let hotovo=0,chyb=0;
+  for(const id of ids){
+    try{await col.doc(id).delete();hotovo++}catch(e){chyb++}
+    $('#bulkInfo').textContent='Mažu… '+hotovo+' z '+ids.length;
+  }
+  picked.clear();
+  if(selId&&ids.includes(selId)){selId=null;$('#detail').hidden=true}
+  render();
+  $('#bulkInfo').textContent=chyb
+    ? ('Smazáno '+hotovo+', nepovedlo se '+chyb+'. Zkuste to u zbytku znovu.')
+    : ('Smazáno '+hotovo+' '+sklonujF(hotovo)+'.');
+};
+
 // ---- všechny
 // Faktura bez data nebo bez částky patří na konec seznamu v obou směrech.
 // Kdyby se řadila jako nula nebo jako rok 0, obsadila by při řazení
@@ -674,7 +725,10 @@ function zahlavi(sloupce){
   const th_=el('thead'),hr=el('tr'),{klic:aktKlic,smer}=R();
   for(const [klic,nadpis,tr_] of sloupce){
     const th=el('th',tr_||null);
-    if(!klic){if(nadpis)th.textContent=nadpis;hr.append(th);continue}
+    if(!klic){
+      if(nadpis instanceof Node)th.append(nadpis);
+      else if(nadpis)th.textContent=nadpis;
+      hr.append(th);continue}
     const aktivni=aktKlic===klic;
     th.setAttribute('aria-sort',aktivni?(smer<0?'descending':'ascending'):'none');
     const b=el('button',null,nadpis+(aktivni?(smer<0?' ↓':' ↑'):''));
@@ -742,19 +796,40 @@ function renderFilters(){
 function renderAll(){
   renderFilters();
   const L=$('#list');L.textContent='';
-  if(!rows.length){L.append(el('p','empty','Zatím žádná faktura. Zadejte ji ručně, načtěte zkušební data v Nastavení, nebo počkejte na sběrač.'));return}
+  if(!rows.length){videne=[];updateBulkDel();
+    L.append(el('p','empty','Zatím žádná faktura. Zadejte ji ručně, načtěte zkušební data v Nastavení, nebo počkejte na sběrač.'));return}
   let list=rows.slice();
   if(filter==='po')list=list.filter(overdue);else if(filter!=='all')list=list.filter(r=>stOf(r)===filter);
   list=list.filter(matchQuery).filter(vObdobi);
   list.sort(porovnej);
-  if(!list.length){L.append(el('p','empty','Výběru neodpovídá žádná faktura.'));return}
+  if(!list.length){videne=[];L.append(el('p','empty','Výběru neodpovídá žádná faktura.'));updateBulkDel();return}
   const tw=el('div','tw'),t=el('table');
-  t.append(zahlavi([['supplier','Dodavatel',''],['number','Číslo',''],
+  // Zaškrtávátko v záhlaví označí jen to, co je zrovna vidět — tedy po
+  // vyhledávání, filtru stavu i výběru období. Kdyby označilo všechno,
+  // smazalo by se i to, co člověk na obrazovce nemá.
+  videne=list.map(r=>r.id);
+  const vse=el('input');vse.type='checkbox';vse.id='selAll';
+  vse.style.cssText='width:16px;height:16px;min-height:16px';
+  vse.checked=list.length>0&&list.every(r=>picked.has(r.id));
+  vse.indeterminate=!vse.checked&&list.some(r=>picked.has(r.id));
+  vse.setAttribute('aria-label','Označit vše, co je vidět');
+  vse.title='Označit vše, co je vidět ('+list.length+')';
+  vse.onchange=()=>{
+    if(vse.checked)list.forEach(r=>picked.add(r.id));
+    else list.forEach(r=>picked.delete(r.id));
+    bulkArmed=false;render();
+  };
+  t.append(zahlavi([[null,vse,'c'],['supplier','Dodavatel',''],['number','Číslo',''],
                     ['issued','Vystaveno',''],['due','Splatnost',''],
                     ['amount','Částka','n'],[null,'Stav',''],[null,'Zdroj',''],[null,'','']]));
   const tb=el('tbody');
   for(const r of list){
     const tr=el('tr'),tds=el('td');
+    const tdc=el('td','c'),cb=el('input');cb.type='checkbox';cb.checked=picked.has(r.id);
+    cb.style.cssText='width:16px;height:16px;min-height:16px';
+    cb.setAttribute('aria-label','Označit fakturu '+(r.number||r.supplier||''));
+    cb.onchange=()=>{cb.checked?picked.add(r.id):picked.delete(r.id);odjisti();updateBulkDel()};
+    tdc.append(cb);tr.append(tdc);
     const nm=el('td');nm.append(document.createTextNode(esc(r.supplier)));
     if(r.test)nm.append(el('span','tag test','zkušební'));
     tr.append(nm,el('td',null,esc(r.number)||'–'),el('td',null,fd(r.issued)),el('td',null,fd(r.due)),castkaBunka(r));
@@ -764,6 +839,7 @@ function renderAll(){
   }
   t.append(tb);tw.append(t);L.append(tw);
   L.append(razeniNote(list.length,rows.length));
+  updateBulkDel();
 }
 
 // ---- dodavatelé
@@ -1038,7 +1114,7 @@ document.addEventListener('keydown',e=>{
 
 // ---- navigace
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
-  tab=b.dataset.tab;picked.clear();
+  tab=b.dataset.tab;picked.clear();bulkArmed=false;
   document.querySelectorAll('[data-tab]').forEach(x=>{x.setAttribute('aria-selected',String(x===b));document.getElementById(x.dataset.tab).hidden=x!==b});
   $('#ttl').textContent=TITLES[tab]||'Faktury';
   $('#q').hidden=['nastaveni','banka','dodavatele','prehled'].includes(tab);
